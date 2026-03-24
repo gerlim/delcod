@@ -31,6 +31,16 @@ class CollectionsRepository {
     _items.add(item);
     return item;
   }
+
+  Future<CollectionItem?> findCollectionById(String id) async {
+    for (final item in _items) {
+      if (item.id == id) {
+        return item;
+      }
+    }
+
+    return null;
+  }
 }
 
 class CollectionItem {

@@ -6,26 +6,30 @@ final collectionsControllerProvider =
   CollectionsController.new,
 );
 
+final collectionItemProvider =
+    FutureProvider.family<CollectionItem?, String>((ref, collectionId) {
+  return ref.read(collectionsRepositoryProvider).findCollectionById(collectionId);
+});
+
 class CollectionsController extends AsyncNotifier<List<CollectionItem>> {
   @override
   Future<List<CollectionItem>> build() {
     return ref.read(collectionsRepositoryProvider).listCollections();
   }
 
-  Future<void> createCollection({
+  Future<CollectionItem> createCollection({
     required String title,
     required String companyId,
     required String createdBy,
   }) async {
     state = const AsyncLoading();
-    state = await AsyncValue.guard(() async {
-      final repository = ref.read(collectionsRepositoryProvider);
-      await repository.createCollection(
-        title: title,
-        companyId: companyId,
-        createdBy: createdBy,
-      );
-      return repository.listCollections();
-    });
+    final repository = ref.read(collectionsRepositoryProvider);
+    final collection = await repository.createCollection(
+      title: title,
+      companyId: companyId,
+      createdBy: createdBy,
+    );
+    state = await AsyncValue.guard(repository.listCollections);
+    return collection;
   }
 }

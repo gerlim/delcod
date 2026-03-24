@@ -1,22 +1,25 @@
 import 'dart:typed_data';
 
+import 'package:barcode_app/app/shell/shell_primitives.dart';
+import 'package:barcode_app/app/theme/app_colors.dart';
 import 'package:barcode_app/core/platform/file_download.dart';
 import 'package:barcode_app/core/platform/platform_capabilities.dart';
 import 'package:barcode_app/features/auth/application/current_session_provider.dart';
 import 'package:barcode_app/features/companies/application/active_company_controller.dart';
 import 'package:barcode_app/features/companies/domain/company_access.dart';
-import 'package:barcode_app/features/readings/application/readings_controller.dart';
-import 'package:barcode_app/features/readings/data/readings_repository.dart';
-import 'package:barcode_app/features/readings/domain/reading_input.dart';
 import 'package:barcode_app/features/export/data/pdf_export_service.dart';
 import 'package:barcode_app/features/export/data/xlsx_export_service.dart';
 import 'package:barcode_app/features/export/domain/export_collection_payload.dart';
 import 'package:barcode_app/features/export/presentation/export_actions.dart';
+import 'package:barcode_app/features/readings/application/readings_controller.dart';
+import 'package:barcode_app/features/readings/data/readings_repository.dart';
+import 'package:barcode_app/features/readings/domain/reading_input.dart';
 import 'package:barcode_app/features/readings/presentation/android_scanner_view.dart';
 import 'package:barcode_app/features/readings/presentation/manual_entry_form.dart';
 import 'package:barcode_app/features/sync/presentation/sync_status_banner.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 class ReadingsPage extends ConsumerWidget {
   const ReadingsPage({
@@ -40,6 +43,7 @@ class ReadingsPage extends ConsumerWidget {
         ref.watch(currentSessionProvider)?.roles ?? const <String>{};
     final canManageReadings = _canManageReadings(currentRoles);
     final count = readings.valueOrNull?.length ?? 0;
+    final compact = MediaQuery.sizeOf(context).width < 680;
 
     Future<void> registerReading(String code, String source) async {
       final decision = await ref
@@ -59,7 +63,7 @@ class ReadingsPage extends ConsumerWidget {
       if (decision.name == 'warning') {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Código já lido nesta coleta'),
+            content: Text('Codigo ja lido nesta coleta'),
           ),
         );
       }
@@ -89,6 +93,9 @@ class ReadingsPage extends ConsumerWidget {
         activeCompanyId: activeCompanyId,
       );
       final bytes = await ref.read(pdfExportServiceProvider).buildFile(payload);
+      if (!context.mounted) {
+        return;
+      }
       await _downloadExport(
         context: context,
         bytes: bytes,
@@ -104,91 +111,171 @@ class ReadingsPage extends ConsumerWidget {
           .deleteReading(item);
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(collectionTitle),
-      ),
-      body: Column(
-        children: [
-          const SyncStatusBanner(),
-          Expanded(
-            child: readings.when(
-              data: (items) => Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                    child: capabilities.supportsCameraScanning
-                        ? AndroidScannerView(
-                            onDetected: (value) =>
-                                registerReading(value, 'camera'),
-                          )
-                        : ManualEntryForm(
-                            onSubmit: (value) =>
-                                registerReading(value, 'manual'),
-                          ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                    child: ExportActions(
-                      onExportXlsx: () => exportXlsx(items),
-                      onExportPdf: () => exportPdf(items),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeader(
+          title: collectionTitle,
+          subtitle:
+              'Coleta ativa para leitura em tempo real, conferencia e exportacao.',
+          actions: [
+            OutlinedButton.icon(
+              onPressed: () => context.go('/collections'),
+              icon: const Icon(Icons.arrow_back_rounded),
+              label: const Text('Voltar para coletas'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        const SyncStatusBanner(),
+        const SizedBox(height: 20),
+        Expanded(
+          child: readings.when(
+            data: (items) => ListView(
+              children: [
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 16,
+                  crossAxisAlignment: WrapCrossAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: compact ? double.infinity : 460,
+                      child: SectionCard(
+                        child: capabilities.supportsCameraScanning
+                            ? AndroidScannerView(
+                                onDetected: (value) =>
+                                    registerReading(value, 'camera'),
+                              )
+                            : ManualEntryForm(
+                                onSubmit: (value) =>
+                                    registerReading(value, 'manual'),
+                              ),
+                      ),
                     ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Text('Total: $count'),
-                  ),
-                  Expanded(
-                    child: items.isEmpty
-                        ? const Center(
-                            child: Text('Nenhuma leitura registrada'))
-                        : ListView.builder(
-                            itemCount: items.length,
-                            itemBuilder: (context, index) {
-                              final item = items[index];
-                              return Dismissible(
-                                key: ValueKey(item.id),
-                                direction: canManageReadings
-                                    ? DismissDirection.endToStart
-                                    : DismissDirection.none,
-                                onDismissed: (_) => deleteReading(item),
-                                background: Container(color: Colors.red),
-                                child: ListTile(
-                                  title: Text(item.code),
-                                  subtitle: Text(item.source),
-                                  trailing: canManageReadings
-                                      ? Row(
-                                          mainAxisSize: MainAxisSize.min,
+                    SizedBox(
+                      width: compact ? double.infinity : 280,
+                      child: Column(
+                        children: [
+                          MetricCard(
+                            label: 'Total',
+                            value: '$count',
+                            icon: Icons.qr_code_2_rounded,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Total: $count',
+                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                          ),
+                          const SizedBox(height: 16),
+                          SectionCard(
+                            child: ExportActions(
+                              onExportXlsx: () => exportXlsx(items),
+                              onExportPdf: () => exportPdf(items),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                SectionCard(
+                  padding: EdgeInsets.zero,
+                  child: items.isEmpty
+                      ? const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 32),
+                          child: Center(
+                            child: Text('Nenhuma leitura registrada'),
+                          ),
+                        )
+                      : ListView.separated(
+                          padding: const EdgeInsets.all(12),
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: items.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 12),
+                          itemBuilder: (context, index) {
+                            final item = items[index];
+                            return Dismissible(
+                              key: ValueKey(item.id),
+                              direction: canManageReadings
+                                  ? DismissDirection.endToStart
+                                  : DismissDirection.none,
+                              onDismissed: (_) => deleteReading(item),
+                              background: Container(
+                                decoration: BoxDecoration(
+                                  color: AppColors.faultRed,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                alignment: Alignment.centerRight,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                ),
+                                child: const Icon(
+                                  Icons.delete_outline,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              child: Card.outlined(
+                                margin: EdgeInsets.zero,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        item.code,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .titleMedium
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(item.source),
+                                      if (canManageReadings) ...[
+                                        const SizedBox(height: 10),
+                                        Wrap(
+                                          spacing: 8,
                                           children: [
-                                            IconButton(
+                                            TextButton.icon(
                                               onPressed: () {},
                                               icon: const Icon(
-                                                  Icons.edit_outlined),
+                                                Icons.edit_outlined,
+                                              ),
+                                              label: const Text('Editar'),
                                             ),
-                                            IconButton(
-                                              onPressed: () =>
-                                                  deleteReading(item),
+                                            TextButton.icon(
+                                              onPressed: () => deleteReading(item),
                                               icon: const Icon(
-                                                  Icons.delete_outline),
+                                                Icons.delete_outline,
+                                              ),
+                                              label: const Text('Excluir'),
                                             ),
                                           ],
-                                        )
-                                      : null,
+                                        ),
+                                      ],
+                                    ],
+                                  ),
                                 ),
-                              );
-                            },
-                          ),
-                  ),
-                ],
-              ),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (_, __) =>
-                  const Center(child: Text('Falha ao carregar leituras')),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
             ),
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (_, __) =>
+                const Center(child: Text('Falha ao carregar leituras')),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -238,7 +325,7 @@ class ReadingsPage extends ConsumerWidget {
 
     final message = downloaded
         ? successMessage
-        : 'Arquivo gerado. Download automático disponível no navegador.';
+        : 'Arquivo gerado. Download automatico disponivel no navegador.';
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
