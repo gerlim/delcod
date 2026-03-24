@@ -1,3 +1,4 @@
+import 'package:barcode_app/features/collections/presentation/collections_page.dart';
 import 'package:barcode_app/features/auth/presentation/login_page.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -8,6 +9,10 @@ GoRouter buildRouter() {
       GoRoute(
         path: '/',
         builder: (_, __) => const LoginPage(),
+      ),
+      GoRoute(
+        path: '/collections',
+        builder: (_, __) => const CollectionsPage(),
       ),
     ],
   );
