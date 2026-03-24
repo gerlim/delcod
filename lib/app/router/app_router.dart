@@ -1,3 +1,4 @@
+import 'package:barcode_app/features/auth/presentation/login_page.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -6,18 +7,7 @@ GoRouter buildRouter() {
     routes: [
       GoRoute(
         path: '/',
-        builder: (_, __) => const Scaffold(
-          body: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('Barcode App'),
-                SizedBox(height: 8),
-                Text('Inicializando...'),
-              ],
-            ),
-          ),
-        ),
+        builder: (_, __) => const LoginPage(),
       ),
     ],
   );

@@ -1,5 +1,6 @@
 import 'package:barcode_app/data/remote/supabase/supabase_client_provider.dart';
 import 'package:barcode_app/features/auth/domain/current_session.dart';
+import 'package:barcode_app/features/auth/domain/login_request.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -24,6 +25,20 @@ class AuthRepository {
       userId: session.user.id,
       activeCompanyId: null,
       roles: const {},
+    );
+  }
+
+  Future<void> signIn(LoginRequest request) async {
+    final client = _client;
+    if (client == null) {
+      throw StateError('SupabaseClient não disponível para autenticação.');
+    }
+
+    final technicalEmail = '${request.companyCode}.${request.matricula}@local.barcode-app';
+
+    await client.auth.signInWithPassword(
+      email: technicalEmail,
+      password: request.password,
     );
   }
 }
