@@ -16,7 +16,7 @@ class AdminController extends Notifier<bool> {
 
   Future<void> createUser(AdminUserCreateRequest request) async {
     if (!state) {
-      throw StateError('Somente administradores podem criar usuários.');
+      throw StateError('Somente administradores podem criar usuarios.');
     }
 
     await ref.read(adminRepositoryProvider).createUser(request);

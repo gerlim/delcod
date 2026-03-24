@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('mostra o formulário administrativo de criação de usuário',
+  testWidgets('mostra o formulario administrativo de criacao de usuario',
       (tester) async {
     await tester.pumpWidget(
       ProviderScope(
@@ -26,11 +26,13 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Criar usuário'), findsOneWidget);
+    expect(find.text('Criar usuario'), findsOneWidget);
     expect(find.text('Nome'), findsOneWidget);
-    expect(find.text('Matrícula'), findsOneWidget);
-    expect(find.text('Empresas'), findsOneWidget);
-    expect(find.text('Papéis'), findsOneWidget);
+    expect(find.text('Matricula'), findsOneWidget);
+    expect(find.text('Senha inicial'), findsOneWidget);
     expect(find.text('Cargo global'), findsOneWidget);
+    expect(find.text('Del Papeis'), findsOneWidget);
+    expect(find.text('Bora Embalagens'), findsOneWidget);
+    expect(find.text('ABN Embalagens'), findsOneWidget);
   });
 }

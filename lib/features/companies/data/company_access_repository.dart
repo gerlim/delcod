@@ -1,14 +1,23 @@
+import 'package:barcode_app/features/auth/application/auth_controller.dart';
 import 'package:barcode_app/features/companies/domain/company_access.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final companyAccessRepositoryProvider = Provider<CompanyAccessRepository>((ref) {
-  return const CompanyAccessRepository();
+  return SessionCompanyAccessRepository(ref);
 });
 
-class CompanyAccessRepository {
-  const CompanyAccessRepository();
+abstract class CompanyAccessRepository {
+  Future<List<CompanyAccess>> listAvailableCompanies();
+}
 
+class SessionCompanyAccessRepository implements CompanyAccessRepository {
+  SessionCompanyAccessRepository(this._ref);
+
+  final Ref _ref;
+
+  @override
   Future<List<CompanyAccess>> listAvailableCompanies() async {
-    return const [];
+    final session = await _ref.read(authControllerProvider.future);
+    return session?.availableCompanies ?? const [];
   }
 }

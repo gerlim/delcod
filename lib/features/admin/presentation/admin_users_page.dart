@@ -1,5 +1,6 @@
 import 'package:barcode_app/features/admin/application/admin_controller.dart';
 import 'package:barcode_app/features/admin/domain/admin_user_create_request.dart';
+import 'package:barcode_app/features/companies/domain/fixed_companies.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -13,31 +14,46 @@ class AdminUsersPage extends ConsumerStatefulWidget {
 class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
   final _nomeController = TextEditingController();
   final _matriculaController = TextEditingController();
-  final _empresasController = TextEditingController();
-  final _papeisController = TextEditingController();
-  final _cargoGlobalController = TextEditingController();
+  final _senhaInicialController = TextEditingController();
+  String? _cargoGlobal;
+  late final Map<String, bool> _selectedCompanies;
+  late final Map<String, String> _companyRoles;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedCompanies = {
+      for (final company in fixedCompanies) company.code: false,
+    };
+    _companyRoles = {
+      for (final company in fixedCompanies) company.code: 'reader',
+    };
+  }
 
   @override
   void dispose() {
     _nomeController.dispose();
     _matriculaController.dispose();
-    _empresasController.dispose();
-    _papeisController.dispose();
-    _cargoGlobalController.dispose();
+    _senhaInicialController.dispose();
     super.dispose();
   }
 
   Future<void> _submit() async {
+    final memberships = <CompanyRoleAssignment>[
+      for (final company in fixedCompanies)
+        if (_selectedCompanies[company.code] ?? false)
+          CompanyRoleAssignment(
+            companyCode: company.code,
+            role: _companyRoles[company.code] ?? 'reader',
+          ),
+    ];
+
     final request = AdminUserCreateRequest(
       matricula: _matriculaController.text.trim(),
       nome: _nomeController.text.trim(),
-      memberships: _parseMemberships(
-        companies: _empresasController.text,
-        roles: _papeisController.text,
-      ),
-      globalRole: _cargoGlobalController.text.trim().isEmpty
-          ? null
-          : _cargoGlobalController.text.trim(),
+      senhaInicial: _senhaInicialController.text,
+      memberships: memberships,
+      globalRole: _cargoGlobal,
     );
 
     await ref.read(adminControllerProvider.notifier).createUser(request);
@@ -47,7 +63,7 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Usuário criado')),
+      const SnackBar(content: Text('Usuario criado')),
     );
   }
 
@@ -57,7 +73,7 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Usuários'),
+        title: const Text('Usuarios'),
       ),
       body: canCreateUsers
           ? ListView(
@@ -73,65 +89,103 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
                 TextField(
                   controller: _matriculaController,
                   decoration: const InputDecoration(
-                    labelText: 'Matrícula',
+                    labelText: 'Matricula',
                   ),
                 ),
                 const SizedBox(height: 12),
                 TextField(
-                  controller: _empresasController,
+                  controller: _senhaInicialController,
+                  obscureText: true,
                   decoration: const InputDecoration(
-                    labelText: 'Empresas',
+                    labelText: 'Senha inicial',
                   ),
                 ),
                 const SizedBox(height: 12),
-                TextField(
-                  controller: _papeisController,
-                  decoration: const InputDecoration(
-                    labelText: 'Papéis',
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: _cargoGlobalController,
+                DropdownButtonFormField<String?>(
+                  value: _cargoGlobal,
                   decoration: const InputDecoration(
                     labelText: 'Cargo global',
                   ),
+                  items: const [
+                    DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text('Nenhum'),
+                    ),
+                    DropdownMenuItem<String?>(
+                      value: 'gestor_global',
+                      child: Text('Gestor global'),
+                    ),
+                    DropdownMenuItem<String?>(
+                      value: 'admin_global',
+                      child: Text('Admin global'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      _cargoGlobal = value;
+                    });
+                  },
                 ),
+                const SizedBox(height: 16),
+                for (final company in fixedCompanies) ...[
+                  CheckboxListTile(
+                    value: _selectedCompanies[company.code] ?? false,
+                    title: Text(company.name),
+                    onChanged: (value) {
+                      setState(() {
+                        _selectedCompanies[company.code] = value ?? false;
+                      });
+                    },
+                  ),
+                  if (_selectedCompanies[company.code] ?? false)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 16, right: 16),
+                      child: DropdownButtonFormField<String>(
+                        value: _companyRoles[company.code],
+                        decoration: const InputDecoration(
+                          labelText: 'Papel',
+                        ),
+                        items: const [
+                          DropdownMenuItem<String>(
+                            value: 'reader',
+                            child: Text('Leitor'),
+                          ),
+                          DropdownMenuItem<String>(
+                            value: 'operator',
+                            child: Text('Operador'),
+                          ),
+                          DropdownMenuItem<String>(
+                            value: 'manager',
+                            child: Text('Gestor'),
+                          ),
+                          DropdownMenuItem<String>(
+                            value: 'admin',
+                            child: Text('Admin'),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          if (value == null) {
+                            return;
+                          }
+
+                          setState(() {
+                            _companyRoles[company.code] = value;
+                          });
+                        },
+                      ),
+                    ),
+                  const SizedBox(height: 8),
+                ],
                 const SizedBox(height: 24),
                 FilledButton(
                   onPressed: _submit,
-                  child: const Text('Criar usuário'),
+                  child: const Text('Criar usuario'),
                 ),
               ],
             )
           : const Center(
               child: Text('Acesso negado'),
             ),
-    );
-  }
-
-  List<CompanyRoleAssignment> _parseMemberships({
-    required String companies,
-    required String roles,
-  }) {
-    final companyItems = companies
-        .split(',')
-        .map((item) => item.trim())
-        .where((item) => item.isNotEmpty)
-        .toList(growable: false);
-    final roleItems = roles
-        .split(',')
-        .map((item) => item.trim())
-        .where((item) => item.isNotEmpty)
-        .toList(growable: false);
-
-    return List<CompanyRoleAssignment>.generate(
-      companyItems.length,
-      (index) => CompanyRoleAssignment(
-        companyId: companyItems[index],
-        role: index < roleItems.length ? roleItems[index] : 'reader',
-      ),
-      growable: false,
     );
   }
 }

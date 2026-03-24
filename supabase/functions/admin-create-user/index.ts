@@ -2,7 +2,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { corsHeaders } from '../_shared/cors.ts';
 
 type MembershipInput = {
-  company_id: string;
+  company_code: string;
   role: 'reader' | 'operator' | 'manager' | 'admin';
 };
 
@@ -18,7 +18,7 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
 const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
 
 if (!supabaseUrl || !serviceRoleKey) {
-  throw new Error('SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY são obrigatórias.');
+  throw new Error('SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY sao obrigatorias.');
 }
 
 const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
@@ -36,7 +36,7 @@ Deno.serve(async (request) => {
   try {
     const authorization = request.headers.get('Authorization');
     if (!authorization?.startsWith('Bearer ')) {
-      return jsonResponse({ error: 'Token de autorização ausente.' }, 401);
+      return jsonResponse({ error: 'Token de autorizacao ausente.' }, 401);
     }
 
     const token = authorization.replace('Bearer ', '');
@@ -46,45 +46,53 @@ Deno.serve(async (request) => {
     } = await supabaseAdmin.auth.getUser(token);
 
     if (requesterError || !requester) {
-      return jsonResponse({ error: 'Não foi possível validar o usuário solicitante.' }, 401);
+      return jsonResponse({ error: 'Nao foi possivel validar o usuario solicitante.' }, 401);
     }
 
     const payload = (await request.json()) as AdminCreateUserRequest;
     const parsed = validatePayload(payload);
-
     const requesterAccess = await loadRequesterAccess(requester.id);
+
     if (!requesterAccess.isAllowed) {
-      return jsonResponse({ error: 'Somente administradores podem criar usuários.' }, 403);
+      return jsonResponse({ error: 'Somente administradores podem criar usuarios.' }, 403);
     }
 
-    if (!requesterAccess.isGlobalAdmin) {
-      const unauthorizedCompany = parsed.memberships.find(
-        (membership) => !requesterAccess.adminCompanyIds.includes(membership.company_id),
+    const companies = await loadCompaniesByCode(parsed.memberships.map((membership) => membership.company_code));
+    const companyIdByCode = new Map(companies.map((company) => [company.code, company.id]));
+    const unauthorizedCompany = parsed.memberships.find((membership) => {
+      const companyId = companyIdByCode.get(membership.company_code);
+      if (!companyId) {
+        return true;
+      }
+
+      if (requesterAccess.isGlobalAdmin) {
+        return false;
+      }
+
+      return !requesterAccess.adminCompanyIds.includes(companyId);
+    });
+
+    if (unauthorizedCompany) {
+      return jsonResponse(
+        { error: 'O solicitante nao possui administracao para todas as empresas informadas.' },
+        403,
       );
-
-      if (unauthorizedCompany) {
-        return jsonResponse(
-          { error: 'O solicitante não possui administração para todas as empresas informadas.' },
-          403,
-        );
-      }
-
-      if (parsed.global_role) {
-        return jsonResponse(
-          { error: 'Somente admin global pode definir cargo global.' },
-          403,
-        );
-      }
     }
 
-    const primaryCompany = await loadCompany(parsed.memberships[0].company_id);
-    const temporaryPassword = parsed.temporary_password || generateTemporaryPassword();
-    const technicalEmail = `${primaryCompany.code}.${parsed.matricula}@local.barcode-app`;
+    if (!requesterAccess.isGlobalAdmin && parsed.global_role) {
+      return jsonResponse(
+        { error: 'Somente admin global pode definir cargo global.' },
+        403,
+      );
+    }
+
+    const primaryCompany = companies[0];
+    const technicalEmail = `${parsed.matricula}@local.barcode-app`;
 
     const { data: authUser, error: createUserError } =
       await supabaseAdmin.auth.admin.createUser({
         email: technicalEmail,
-        password: temporaryPassword,
+        password: parsed.temporary_password,
         email_confirm: true,
         user_metadata: {
           nome: parsed.nome,
@@ -94,7 +102,7 @@ Deno.serve(async (request) => {
 
     if (createUserError || !authUser.user) {
       return jsonResponse(
-        { error: createUserError?.message ?? 'Não foi possível criar usuário no Auth.' },
+        { error: createUserError?.message ?? 'Nao foi possivel criar usuario no Auth.' },
         400,
       );
     }
@@ -116,7 +124,7 @@ Deno.serve(async (request) => {
 
       const membershipsToInsert = parsed.memberships.map((membership) => ({
         user_id: userId,
-        company_id: membership.company_id,
+        company_id: companyIdByCode.get(membership.company_code),
         role: membership.role,
         status: 'active',
         granted_by: requester.id,
@@ -153,7 +161,6 @@ Deno.serve(async (request) => {
         {
           user_id: userId,
           technical_email: technicalEmail,
-          temporary_password: temporaryPassword,
         },
         201,
       );
@@ -171,36 +178,41 @@ function validatePayload(payload: AdminCreateUserRequest) {
   const matricula = payload.matricula?.trim();
   const nome = payload.nome?.trim();
   const memberships = payload.memberships ?? [];
+  const temporaryPassword = payload.temporary_password?.trim();
 
   if (!matricula) {
-    throw new Error('Matrícula é obrigatória.');
+    throw new Error('Matricula e obrigatoria.');
   }
 
   if (!nome) {
-    throw new Error('Nome é obrigatório.');
+    throw new Error('Nome e obrigatorio.');
+  }
+
+  if (!temporaryPassword) {
+    throw new Error('Senha inicial e obrigatoria.');
   }
 
   if (!memberships.length) {
-    throw new Error('Ao menos uma empresa deve ser vinculada ao usuário.');
+    throw new Error('Ao menos uma empresa deve ser vinculada ao usuario.');
   }
 
   const allowedRoles = new Set(['reader', 'operator', 'manager', 'admin']);
-  const companyIds = new Set<string>();
+  const companyCodes = new Set<string>();
 
   for (const membership of memberships) {
-    if (!membership.company_id) {
-      throw new Error('company_id é obrigatório em memberships.');
+    if (!membership.company_code) {
+      throw new Error('company_code e obrigatorio em memberships.');
     }
 
     if (!allowedRoles.has(membership.role)) {
-      throw new Error(`Papel inválido em memberships: ${membership.role}`);
+      throw new Error(`Papel invalido em memberships: ${membership.role}`);
     }
 
-    if (companyIds.has(membership.company_id)) {
-      throw new Error('Empresas duplicadas não são permitidas em memberships.');
+    if (companyCodes.has(membership.company_code)) {
+      throw new Error('Empresas duplicadas nao sao permitidas em memberships.');
     }
 
-    companyIds.add(membership.company_id);
+    companyCodes.add(membership.company_code);
   }
 
   return {
@@ -208,7 +220,7 @@ function validatePayload(payload: AdminCreateUserRequest) {
     nome,
     memberships,
     global_role: payload.global_role ?? null,
-    temporary_password: payload.temporary_password?.trim() || null,
+    temporary_password: temporaryPassword,
   };
 }
 
@@ -253,26 +265,29 @@ async function loadRequesterAccess(userId: string) {
   };
 }
 
-async function loadCompany(companyId: string) {
+async function loadCompaniesByCode(companyCodes: string[]) {
   const { data, error } = await supabaseAdmin
     .from('companies')
     .select('id, code, name')
-    .eq('id', companyId)
-    .maybeSingle();
+    .in('code', companyCodes);
 
   if (error) {
     throw new Error(error.message);
   }
 
-  if (!data) {
-    throw new Error('Empresa informada não foi encontrada.');
+  const companies = data ?? [];
+  if (companies.length !== companyCodes.length) {
+    throw new Error('Uma ou mais empresas informadas nao foram encontradas.');
   }
 
-  return data;
-}
+  return companyCodes.map((companyCode) => {
+    const company = companies.find((item) => item.code === companyCode);
+    if (!company) {
+      throw new Error('Empresa informada nao foi encontrada.');
+    }
 
-function generateTemporaryPassword() {
-  return crypto.randomUUID().replaceAll('-', '').slice(0, 12);
+    return company;
+  });
 }
 
 function jsonResponse(payload: unknown, status = 200) {

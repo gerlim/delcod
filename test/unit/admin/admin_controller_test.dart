@@ -7,7 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('somente admins podem criar usuários', () async {
+  test('somente admins podem criar usuarios', () async {
     final repository = _FakeAdminRepository();
     final container = ProviderContainer(
       overrides: [
@@ -27,10 +27,11 @@ void main() {
       container.read(adminControllerProvider.notifier).createUser(
             const AdminUserCreateRequest(
               matricula: '1001',
-              nome: 'Novo Usuário',
+              nome: 'Novo Usuario',
+              senhaInicial: 'Temp@123',
               memberships: [
                 CompanyRoleAssignment(
-                  companyId: 'company-a',
+                  companyCode: 'del-papeis',
                   role: 'reader',
                 ),
               ],
@@ -40,7 +41,7 @@ void main() {
     );
   });
 
-  test('admin consegue criar usuários via repositório administrativo',
+  test('admin consegue criar usuarios via repositorio administrativo',
       () async {
     final repository = _FakeAdminRepository();
     final container = ProviderContainer(
@@ -60,14 +61,15 @@ void main() {
     await container.read(adminControllerProvider.notifier).createUser(
           const AdminUserCreateRequest(
             matricula: '1002',
-            nome: 'Operador Logística',
+            nome: 'Operador Logistica',
+            senhaInicial: 'Temp@456',
             memberships: [
               CompanyRoleAssignment(
-                companyId: 'company-a',
+                companyCode: 'del-papeis',
                 role: 'operator',
               ),
             ],
-            globalRole: 'manager',
+            globalRole: 'gestor_global',
           ),
         );
 

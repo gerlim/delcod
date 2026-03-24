@@ -15,8 +15,16 @@ class AuthController extends AsyncNotifier<CurrentSession?> {
   Future<void> signIn(LoginRequest request) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
-      await ref.read(authRepositoryProvider).signIn(request);
-      return ref.read(authRepositoryProvider).loadCurrentSession();
+      return ref.read(authRepositoryProvider).signIn(request);
     });
+  }
+
+  void setActiveCompany(String? companyId) {
+    final session = state.valueOrNull;
+    if (session == null) {
+      return;
+    }
+
+    state = AsyncData(session.withActiveCompany(companyId));
   }
 }
