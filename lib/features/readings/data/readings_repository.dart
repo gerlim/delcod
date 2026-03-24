@@ -36,6 +36,10 @@ class ReadingsRepository {
         .where((item) => item.collectionId == collectionId)
         .toList(growable: false);
   }
+
+  Future<void> deleteReading(String id) async {
+    _items.removeWhere((item) => item.id == id);
+  }
 }
 
 class ReadingItem {

@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:barcode_app/core/platform/file_download.dart';
 import 'package:barcode_app/core/platform/platform_capabilities.dart';
+import 'package:barcode_app/features/auth/application/current_session_provider.dart';
 import 'package:barcode_app/features/companies/application/active_company_controller.dart';
 import 'package:barcode_app/features/companies/domain/company_access.dart';
 import 'package:barcode_app/features/readings/application/readings_controller.dart';
@@ -35,6 +36,9 @@ class ReadingsPage extends ConsumerWidget {
         ref.watch(availableCompaniesProvider).valueOrNull ?? const [];
     final activeCompanyId =
         ref.watch(activeCompanyControllerProvider).valueOrNull;
+    final currentRoles =
+        ref.watch(currentSessionProvider)?.roles ?? const <String>{};
+    final canManageReadings = _canManageReadings(currentRoles);
     final count = readings.valueOrNull?.length ?? 0;
 
     Future<void> registerReading(String code, String source) async {
@@ -94,6 +98,12 @@ class ReadingsPage extends ConsumerWidget {
       );
     }
 
+    Future<void> deleteReading(ReadingItem item) async {
+      await ref
+          .read(readingsControllerProvider(collectionId).notifier)
+          .deleteReading(item);
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Text(collectionTitle),
@@ -139,11 +149,32 @@ class ReadingsPage extends ConsumerWidget {
                               final item = items[index];
                               return Dismissible(
                                 key: ValueKey(item.id),
-                                direction: DismissDirection.endToStart,
+                                direction: canManageReadings
+                                    ? DismissDirection.endToStart
+                                    : DismissDirection.none,
+                                onDismissed: (_) => deleteReading(item),
                                 background: Container(color: Colors.red),
                                 child: ListTile(
                                   title: Text(item.code),
                                   subtitle: Text(item.source),
+                                  trailing: canManageReadings
+                                      ? Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            IconButton(
+                                              onPressed: () {},
+                                              icon: const Icon(
+                                                  Icons.edit_outlined),
+                                            ),
+                                            IconButton(
+                                              onPressed: () =>
+                                                  deleteReading(item),
+                                              icon: const Icon(
+                                                  Icons.delete_outline),
+                                            ),
+                                          ],
+                                        )
+                                      : null,
                                 ),
                               );
                             },
@@ -233,5 +264,13 @@ class ReadingsPage extends ConsumerWidget {
     }
 
     return 'Empresa ativa';
+  }
+
+  bool _canManageReadings(Set<String> roles) {
+    return roles.contains('admin') ||
+        roles.contains('gestor') ||
+        roles.contains('manager') ||
+        roles.contains('operador') ||
+        roles.contains('operator');
   }
 }
