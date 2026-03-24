@@ -13,7 +13,8 @@ class ReadingsRepository {
   final List<ReadingItem> _items = [];
 
   Future<bool> existsInCollection(String collectionId, String code) async {
-    return _items.any((item) => item.collectionId == collectionId && item.code == code);
+    return _items
+        .any((item) => item.collectionId == collectionId && item.code == code);
   }
 
   Future<void> saveReading(ReadingInput input) async {
@@ -22,13 +23,18 @@ class ReadingsRepository {
         id: _uuid.v4(),
         collectionId: input.collectionId,
         code: input.code,
+        codeType: input.codeType ?? 'Não informado',
+        operatorName: input.operatorName ?? 'Operador pendente',
+        recordedAt: input.recordedAt ?? DateTime.now(),
         source: input.source,
       ),
     );
   }
 
   Future<List<ReadingItem>> listByCollection(String collectionId) async {
-    return _items.where((item) => item.collectionId == collectionId).toList(growable: false);
+    return _items
+        .where((item) => item.collectionId == collectionId)
+        .toList(growable: false);
   }
 }
 
@@ -37,11 +43,17 @@ class ReadingItem {
     required this.id,
     required this.collectionId,
     required this.code,
+    required this.codeType,
+    required this.operatorName,
+    required this.recordedAt,
     required this.source,
   });
 
   final String id;
   final String collectionId;
   final String code;
+  final String codeType;
+  final String operatorName;
+  final DateTime recordedAt;
   final String source;
 }

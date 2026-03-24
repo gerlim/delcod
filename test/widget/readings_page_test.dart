@@ -23,5 +23,7 @@ void main() {
 
     expect(find.text('Total: 0'), findsOneWidget);
     expect(find.text('Sincronizado'), findsOneWidget);
+    expect(find.text('Exportar XLSX'), findsOneWidget);
+    expect(find.text('Exportar PDF'), findsOneWidget);
   });
 }
