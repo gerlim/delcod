@@ -31,7 +31,7 @@ void main() {
       ),
     );
 
-    expect(remote.lastEmail, '1001@local.barcode-app');
+    expect(remote.lastEmail, '1001@barcode-app.test');
   });
 
   test('recusa login quando a empresa escolhida nao esta liberada', () async {

@@ -5,6 +5,12 @@ import 'package:barcode_app/features/companies/domain/company_access.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+const technicalEmailDomain = 'barcode-app.test';
+
+String buildTechnicalEmail(String matricula) {
+  return '$matricula@$technicalEmailDomain';
+}
+
 final authRemoteDataSourceProvider = Provider<AuthRemoteDataSource>((ref) {
   final client = ref.watch(supabaseClientProvider);
   return SupabaseAuthRemoteDataSource(client);
@@ -30,7 +36,7 @@ class AuthRepository {
   }
 
   Future<CurrentSession> signIn(LoginRequest request) async {
-    final technicalEmail = '${request.matricula}@local.barcode-app';
+    final technicalEmail = buildTechnicalEmail(request.matricula);
 
     await _remote.signInWithPassword(
       email: technicalEmail,

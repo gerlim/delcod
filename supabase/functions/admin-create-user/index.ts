@@ -16,6 +16,7 @@ type AdminCreateUserRequest = {
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
 const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
+const technicalEmailDomain = 'barcode-app.test';
 
 if (!supabaseUrl || !serviceRoleKey) {
   throw new Error('SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY sao obrigatorias.');
@@ -87,7 +88,7 @@ Deno.serve(async (request) => {
     }
 
     const primaryCompany = companies[0];
-    const technicalEmail = `${parsed.matricula}@local.barcode-app`;
+    const technicalEmail = `${parsed.matricula}@${technicalEmailDomain}`;
 
     const { data: authUser, error: createUserError } =
       await supabaseAdmin.auth.admin.createUser({
