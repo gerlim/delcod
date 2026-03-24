@@ -9,6 +9,7 @@ build/
 .flutter-plugins-dependencies
 .metadata
 pubspec.lock
+supabase/.temp/
 
 # IDE / OS
 .idea/
