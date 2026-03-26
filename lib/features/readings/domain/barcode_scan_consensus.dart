@@ -40,6 +40,13 @@ class BarcodeScanConsensus {
       return ScanConsensusDecision.rejected;
     }
 
+    if (_canFastConfirm(format)) {
+      _currentValue = normalizedValue;
+      _currentFormat = format;
+      _matches = requiredMatches;
+      return ScanConsensusDecision.confirmed;
+    }
+
     if (_currentValue == normalizedValue && _currentFormat == format) {
       _matches += 1;
     } else {
@@ -79,6 +86,28 @@ class BarcodeScanConsensus {
       case BarcodeFormat.pdf417:
       case BarcodeFormat.aztec:
         return value.isNotEmpty;
+    }
+  }
+
+  static bool _canFastConfirm(BarcodeFormat format) {
+    switch (format) {
+      case BarcodeFormat.ean13:
+      case BarcodeFormat.ean8:
+      case BarcodeFormat.upcA:
+        return true;
+      case BarcodeFormat.code39:
+      case BarcodeFormat.code93:
+      case BarcodeFormat.code128:
+      case BarcodeFormat.codabar:
+      case BarcodeFormat.itf:
+      case BarcodeFormat.upcE:
+      case BarcodeFormat.unknown:
+      case BarcodeFormat.all:
+      case BarcodeFormat.dataMatrix:
+      case BarcodeFormat.qrCode:
+      case BarcodeFormat.pdf417:
+      case BarcodeFormat.aztec:
+        return false;
     }
   }
 

@@ -59,20 +59,15 @@ void main() {
       expect(decision, ScanConsensusDecision.rejected);
     });
 
-    test('aceita EAN-13 valido e confirma no segundo frame', () {
+    test('aceita EAN-13 valido e confirma no primeiro frame', () {
       final consensus = BarcodeScanConsensus(requiredMatches: 2);
 
-      final first = consensus.register(
-        value: '7891234567895',
-        format: BarcodeFormat.ean13,
-      );
-      final second = consensus.register(
+      final decision = consensus.register(
         value: '7891234567895',
         format: BarcodeFormat.ean13,
       );
 
-      expect(first, ScanConsensusDecision.pending);
-      expect(second, ScanConsensusDecision.confirmed);
+      expect(decision, ScanConsensusDecision.confirmed);
     });
   });
 }

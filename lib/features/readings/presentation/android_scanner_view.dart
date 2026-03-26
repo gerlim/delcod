@@ -82,7 +82,8 @@ class _ScannerScreenState extends State<_ScannerScreen> {
 
   late final MobileScannerController _controller = MobileScannerController(
     cameraResolution: const Size(1920, 1080),
-    detectionSpeed: DetectionSpeed.noDuplicates,
+    detectionSpeed: DetectionSpeed.normal,
+    detectionTimeoutMs: 75,
     formats: _supportedLinearFormats,
   );
   final BarcodeScanConsensus _consensus = BarcodeScanConsensus(

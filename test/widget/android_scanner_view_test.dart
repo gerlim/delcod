@@ -43,6 +43,11 @@ void main() {
       findsOneWidget,
     );
 
+    final scannerWidget = tester.widget<MobileScanner>(scannerFinder);
+    final controller = scannerWidget.controller!;
+    expect(controller.detectionSpeed, DetectionSpeed.normal);
+    expect(controller.detectionTimeoutMs, 75);
+
     final scannerHeight = tester.getSize(scannerFinder).height;
     expect(scannerHeight, greaterThanOrEqualTo(860));
   });
