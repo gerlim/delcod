@@ -38,6 +38,10 @@ void main() {
 
     final scannerFinder = find.byType(MobileScanner);
     expect(scannerFinder, findsOneWidget);
+    expect(
+      find.text('Aproxime e alinhe o codigo na area central'),
+      findsOneWidget,
+    );
 
     final scannerHeight = tester.getSize(scannerFinder).height;
     expect(scannerHeight, greaterThanOrEqualTo(860));
