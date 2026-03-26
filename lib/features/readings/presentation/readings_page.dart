@@ -20,7 +20,7 @@ class ReadingsPage extends ConsumerStatefulWidget {
   const ReadingsPage({
     super.key,
     this.collectionId = 'global',
-    this.collectionTitle = 'Delcod',
+    this.collectionTitle = 'DelCod',
   });
 
   final String collectionId;
@@ -519,7 +519,7 @@ class _PageHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SectionHeader(
-      title: 'Delcod',
+      title: 'DelCod',
       subtitle:
           'Leitura rapida no Android, digitacao manual no navegador e lista global compartilhada em tempo real.',
       actions: [

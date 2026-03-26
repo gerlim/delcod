@@ -28,7 +28,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Delcod'), findsOneWidget);
+    expect(find.text('DelCod'), findsOneWidget);
     expect(find.text('Codigos ativos'), findsOneWidget);
     expect(find.text('Sincronizado'), findsOneWidget);
     expect(find.text('Exportar XLSX'), findsOneWidget);

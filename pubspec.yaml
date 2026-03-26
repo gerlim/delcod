@@ -1,5 +1,5 @@
 name: barcode_app
-description: "Delcod: leitura rapida e lista compartilhada de codigos de barras."
+description: "DelCod: leitura rapida e lista compartilhada de codigos de barras."
 publish_to: 'none'
 
 version: 1.0.0+1

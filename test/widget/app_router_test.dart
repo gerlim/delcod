@@ -20,7 +20,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Delcod'), findsOneWidget);
+    expect(find.text('DelCod'), findsOneWidget);
     expect(find.text('Sincronizado'), findsOneWidget);
   });
 }

@@ -490,7 +490,7 @@ class _ShellRail extends StatelessWidget {
                 ),
                 const SizedBox(height: 18),
                 Text(
-                  'Delcod',
+                  'DelCod',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w700,

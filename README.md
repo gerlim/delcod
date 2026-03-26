@@ -1,4 +1,4 @@
-# Delcod
+# DelCod
 
 Aplicativo Flutter para leitura e gestao simples de codigos de barras.
 

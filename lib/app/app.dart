@@ -8,7 +8,7 @@ class BarcodeApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'Delcod',
+      title: 'DelCod',
       theme: buildAppTheme(),
       routerConfig: buildRouter(),
     );
