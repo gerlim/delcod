@@ -8,7 +8,6 @@ build/
 .flutter-plugins
 .flutter-plugins-dependencies
 .metadata
-pubspec.lock
 supabase/.temp/
 
 # IDE / OS
@@ -22,3 +21,12 @@ __pycache__/
 *.pyc
 ~$*.docx
 .vercel
+
+# Secrets / local env
+.env
+.env.*
+!.env.example
+android/key.properties
+*.jks
+*.keystore
+*.p12
