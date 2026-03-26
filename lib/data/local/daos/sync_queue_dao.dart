@@ -19,18 +19,22 @@ class SyncQueueDao extends DatabaseAccessor<AppDatabase>
   }
 
   Future<bool> markCompleted(String id) {
-    return (update(syncQueueTable)..where((t) => t.id.equals(id))).write(
-      const SyncQueueTableCompanion(status: Value('completed')),
-    );
+    return (update(syncQueueTable)..where((t) => t.id.equals(id)))
+        .write(
+          const SyncQueueTableCompanion(status: Value('completed')),
+        )
+        .then((count) => count > 0);
   }
 
   Future<bool> markFailed(String id, String message) {
-    return (update(syncQueueTable)..where((t) => t.id.equals(id))).write(
-      SyncQueueTableCompanion(
-        status: const Value('failed'),
-        lastError: Value(message),
-        attempts: const Value(1),
-      ),
-    );
+    return (update(syncQueueTable)..where((t) => t.id.equals(id)))
+        .write(
+          SyncQueueTableCompanion(
+            status: const Value('failed'),
+            lastError: Value(message),
+            attempts: const Value(1),
+          ),
+        )
+        .then((count) => count > 0);
   }
 }

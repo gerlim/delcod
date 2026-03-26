@@ -47,3 +47,7 @@ flutter build web --dart-define=SUPABASE_URL=SEU_URL --dart-define=SUPABASE_ANON
 ```powershell
 flutter build apk --release --dart-define=SUPABASE_URL=SEU_URL --dart-define=SUPABASE_ANON_KEY=SUA_KEY --dart-define=APP_ENV=production
 ```
+
+## Licença
+
+MIT. Veja [LICENSE](LICENSE).

@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('gera uma planilha simples com os codigos selecionados', () {
-    final service = XlsxExportService();
+    const service = XlsxExportService();
     final bytes = service.buildFile(
       const ExportReadingsPayload(
         title: 'Lista global',

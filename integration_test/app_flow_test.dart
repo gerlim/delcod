@@ -1,10 +1,4 @@
-import 'package:barcode_app/features/auth/presentation/login_page.dart';
-import 'package:barcode_app/features/companies/data/company_access_repository.dart';
-import 'package:barcode_app/features/companies/domain/company_access.dart';
-import 'package:barcode_app/features/companies/presentation/company_switcher.dart';
-import 'package:barcode_app/features/collections/presentation/collections_page.dart';
 import 'package:barcode_app/features/readings/data/readings_repository.dart';
-import 'package:barcode_app/features/readings/domain/reading_input.dart';
 import 'package:barcode_app/features/readings/presentation/readings_page.dart';
 import 'package:barcode_app/features/sync/application/sync_controller.dart';
 import 'package:flutter/material.dart';
@@ -15,114 +9,88 @@ import 'package:integration_test/integration_test.dart';
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('renderiza login, seleção de empresa, coletas e leituras',
-      (tester) async {
-    final readingsRepository = ReadingsRepository();
-    await readingsRepository.saveReading(
-      const ReadingInput(
-        collectionId: 'collection-1',
-        code: '7891234567890',
-        source: 'camera',
-        codeType: 'EAN-13',
-        operatorName: 'Operador 01',
-        recordedAt: DateTime(2026, 3, 23, 10, 30),
+  testWidgets('renderiza a tela principal simplificada', (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          readingsRepositoryProvider.overrideWithValue(
+            _IntegrationReadingsRepository(),
+          ),
+          syncPollingEnabledProvider.overrideWithValue(false),
+        ],
+        child: const MaterialApp(
+          home: ReadingsPage(),
+        ),
       ),
     );
 
-    await _pumpScreen(
-      tester,
-      const LoginPage(),
-    );
+    await tester.pumpAndSettle();
 
     expect(find.text('DelCod'), findsOneWidget);
-    expect(find.text('Empresa'), findsOneWidget);
-    expect(find.text('Matrícula'), findsOneWidget);
-    expect(find.text('Senha'), findsOneWidget);
-
-    await _pumpScreen(
-      tester,
-      const Scaffold(
-        body: Center(
-          child: CompanySwitcher(),
-        ),
-      ),
-      overrides: [
-        companyAccessRepositoryProvider.overrideWithValue(
-          const _FakeCompanyAccessRepository(
-            [
-              CompanyAccess(
-                companyId: 'company-a',
-                companyName: 'Empresa A',
-                role: 'operator',
-              ),
-              CompanyAccess(
-                companyId: 'company-b',
-                companyName: 'Empresa B',
-                role: 'reader',
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-
-    expect(find.text('Empresa ativa'), findsOneWidget);
-
-    await _pumpScreen(
-      tester,
-      const CollectionsPage(),
-      overrides: [
-        syncPollingEnabledProvider.overrideWithValue(false),
-      ],
-    );
-
-    expect(find.text('Coletas'), findsOneWidget);
-    expect(find.text('Nova coleta'), findsOneWidget);
-
-    await _pumpScreen(
-      tester,
-      const ReadingsPage(
-        collectionId: 'collection-1',
-        collectionTitle: 'Coleta Expedição 01',
-      ),
-      overrides: [
-        syncPollingEnabledProvider.overrideWithValue(false),
-        readingsRepositoryProvider.overrideWithValue(readingsRepository),
-      ],
-    );
-
-    expect(find.text('Coleta Expedição 01'), findsOneWidget);
-    expect(find.text('Total: 1'), findsOneWidget);
+    expect(find.text('Codigos ativos'), findsOneWidget);
     expect(find.text('Exportar XLSX'), findsOneWidget);
     expect(find.text('Exportar PDF'), findsOneWidget);
   });
 }
 
-Future<void> _pumpScreen(
-  WidgetTester tester,
-  Widget child, {
-  List<Override> overrides = const [],
-}) async {
-  await tester.pumpWidget(
-    ProviderScope(
-      overrides: overrides,
-      child: MaterialApp(
-        home: child,
-      ),
+class _IntegrationReadingsRepository implements ReadingsRepository {
+  final List<ReadingItem> _items = [
+    ReadingItem(
+      id: '1',
+      code: '7891234567890',
+      source: 'camera',
+      updatedAt: DateTime.parse('2026-03-23T13:30:00Z'),
+      deletedAt: null,
+      deviceId: 'android',
     ),
-  );
-  await tester.pump();
-  await tester.pump(const Duration(milliseconds: 150));
-  await tester.pump(const Duration(milliseconds: 150));
-}
-
-class _FakeCompanyAccessRepository extends CompanyAccessRepository {
-  const _FakeCompanyAccessRepository(this._items);
-
-  final List<CompanyAccess> _items;
+  ];
 
   @override
-  Future<List<CompanyAccess>> listAvailableCompanies() async {
-    return _items;
+  Future<ReadingItem> addCode({
+    required String code,
+    required String source,
+  }) async {
+    throw UnimplementedError();
   }
+
+  @override
+  Future<bool> checkOnlineStatus() async => true;
+
+  @override
+  Future<void> clearAll() async {}
+
+  @override
+  void dispose() {}
+
+  @override
+  Future<bool> existsCode(
+    String code, {
+    String? excludingId,
+  }) async {
+    return _items.any((item) => item.code == code && item.id != excludingId);
+  }
+
+  @override
+  Future<List<ReadingItem>> fetchActive() async => List<ReadingItem>.of(_items);
+
+  @override
+  Future<int> pendingCount() async => 0;
+
+  @override
+  Future<void> softDelete(String id) async {}
+
+  @override
+  Future<void> syncNow() async {}
+
+  @override
+  Future<void> updateCode({
+    required String id,
+    required String newCode,
+  }) async {}
+
+  @override
+  Stream<List<ReadingItem>> watchActive() => Stream.value(_items);
+
+  @override
+  Stream<bool> watchOnlineStatus() => const Stream<bool>.empty();
 }

@@ -12,7 +12,7 @@ void main() {
             _SmokeReadingsRepository(),
           ),
         ],
-        child: BarcodeApp(),
+        child: const BarcodeApp(),
       ),
     );
     await tester.pumpAndSettle();

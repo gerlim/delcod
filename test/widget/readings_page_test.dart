@@ -1,3 +1,5 @@
+// ignore_for_file: prefer_const_constructors
+
 import 'package:barcode_app/features/readings/data/readings_repository.dart';
 import 'package:barcode_app/features/readings/presentation/readings_page.dart';
 import 'package:barcode_app/features/sync/application/sync_controller.dart';

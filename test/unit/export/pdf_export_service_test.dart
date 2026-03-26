@@ -6,7 +6,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test('gera um arquivo pdf valido para os codigos selecionados', () async {
-    final service = PdfExportService();
+    const service = PdfExportService();
     final bytes = await service.buildFile(
       const ExportReadingsPayload(
         title: 'Lista global',
