@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:barcode_app/features/readings/domain/barcode_scan_consensus.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 const List<BarcodeFormat> _supportedLinearFormats = <BarcodeFormat>[
@@ -72,26 +73,83 @@ class _ScannerScreen extends StatefulWidget {
 }
 
 class _ScannerScreenState extends State<_ScannerScreen> {
+  static const String _defaultHintMessage =
+      'Aproxime e alinhe o codigo na area central';
+  static const String _holdStillHintMessage =
+      'Leitura detectada. Mantenha o codigo parado por um instante';
+  static const String _retryHintMessage =
+      'Leitura instavel. Ajuste a distancia ou use a lanterna';
+
   late final MobileScannerController _controller = MobileScannerController(
     cameraResolution: const Size(1920, 1080),
     detectionSpeed: DetectionSpeed.noDuplicates,
     formats: _supportedLinearFormats,
   );
+  final BarcodeScanConsensus _consensus = BarcodeScanConsensus(
+    requiredMatches: 2,
+  );
   bool _handlingDetection = false;
+  String _hintMessage = _defaultHintMessage;
 
   void _handleDetection(BarcodeCapture capture) {
     if (_handlingDetection) {
       return;
     }
 
-    final value = capture.barcodes.firstOrNull?.rawValue;
+    final candidate = _selectBestBarcode(capture.barcodes);
+    final value = candidate?.rawValue ?? candidate?.displayValue;
     if (value == null || value.isEmpty) {
       return;
     }
 
-    _handlingDetection = true;
-    widget.onDetected(value);
-    Navigator.of(context).pop();
+    final decision = _consensus.register(
+      value: value,
+      format: candidate!.format,
+    );
+
+    switch (decision) {
+      case ScanConsensusDecision.rejected:
+        if (mounted && _hintMessage != _retryHintMessage) {
+          setState(() => _hintMessage = _retryHintMessage);
+        }
+        return;
+      case ScanConsensusDecision.pending:
+        if (mounted && _hintMessage != _holdStillHintMessage) {
+          setState(() => _hintMessage = _holdStillHintMessage);
+        }
+        return;
+      case ScanConsensusDecision.confirmed:
+        final confirmedValue = _consensus.currentValue;
+        if (confirmedValue == null || confirmedValue.isEmpty) {
+          return;
+        }
+
+        _handlingDetection = true;
+        widget.onDetected(confirmedValue);
+        Navigator.of(context).pop();
+    }
+  }
+
+  Barcode? _selectBestBarcode(List<Barcode> barcodes) {
+    final candidates = barcodes
+        .where((barcode) => _supportedLinearFormats.contains(barcode.format))
+        .where((barcode) {
+          final rawValue = barcode.rawValue ?? barcode.displayValue;
+          return rawValue != null && rawValue.trim().isNotEmpty;
+        })
+        .toList(growable: false);
+
+    if (candidates.isEmpty) {
+      return null;
+    }
+
+    candidates.sort((left, right) {
+      final leftArea = left.size.width * left.size.height;
+      final rightArea = right.size.width * right.size.height;
+      return rightArea.compareTo(leftArea);
+    });
+
+    return candidates.first;
   }
 
   @override
@@ -131,9 +189,8 @@ class _ScannerScreenState extends State<_ScannerScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const _ScannerHintCard(
-                            message:
-                                'Aproxime e alinhe o codigo na area central',
+                          _ScannerHintCard(
+                            message: _hintMessage,
                           ),
                           Row(
                             children: [
