@@ -15,8 +15,10 @@ supabase/.temp/
 .idea/
 .vscode/
 *.iml
+devtools_options.yaml
 Thumbs.db
 Desktop.ini
 __pycache__/
 *.pyc
 ~$*.docx
+.vercel

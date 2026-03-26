@@ -229,15 +229,20 @@ class _CollectionsPageState extends ConsumerState<CollectionsPage> {
                           const SizedBox(height: 10),
                           Text(
                             'Nenhuma coleta criada',
-                            style:
-                                Theme.of(context).textTheme.titleMedium?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                    ),
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                ),
                           ),
                           const SizedBox(height: 6),
                           Text(
                             'Crie a primeira coleta para iniciar as leituras desta empresa.',
-                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodyMedium
+                                ?.copyWith(
                                   color: AppColors.steel,
                                 ),
                             textAlign: TextAlign.center,

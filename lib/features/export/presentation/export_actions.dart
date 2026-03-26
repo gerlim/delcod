@@ -7,8 +7,8 @@ class ExportActions extends StatelessWidget {
     required this.onExportPdf,
   });
 
-  final VoidCallback onExportXlsx;
-  final VoidCallback onExportPdf;
+  final VoidCallback? onExportXlsx;
+  final VoidCallback? onExportPdf;
 
   @override
   Widget build(BuildContext context) {

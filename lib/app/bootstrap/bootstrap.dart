@@ -1,5 +1,6 @@
 import 'package:barcode_app/app/bootstrap/app_config.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:barcode_app/data/remote/supabase/supabase_client_provider.dart';
+import 'package:supabase/supabase.dart';
 
 typedef SupabaseInitializer = Future<void> Function(AppConfig config);
 
@@ -24,8 +25,11 @@ Future<BootstrapResult> bootstrapApplication({
 }
 
 Future<void> _initializeSupabase(AppConfig config) {
-  return Supabase.initialize(
-    url: config.supabaseUrl,
-    anonKey: config.supabaseAnonKey,
+  SupabaseClientRegistry.initialize(
+    SupabaseClient(
+      config.supabaseUrl,
+      config.supabaseAnonKey,
+    ),
   );
+  return Future.value();
 }

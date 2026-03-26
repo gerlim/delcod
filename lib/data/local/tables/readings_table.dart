@@ -7,7 +7,8 @@ class ReadingsTable extends Table {
   TextColumn get codeType => text().withDefault(const Constant('unknown'))();
   TextColumn get source => text()();
   TextColumn get createdBy => text()();
-  BoolColumn get duplicateConfirmed => boolean().withDefault(const Constant(false))();
+  BoolColumn get duplicateConfirmed =>
+      boolean().withDefault(const Constant(false))();
   DateTimeColumn get createdAt => dateTime()();
 
   @override

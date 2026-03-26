@@ -1,16 +1,23 @@
-# barcode_app
+# Delcod
 
-A new Flutter project.
+Aplicativo Flutter para leitura e gestao simples de codigos de barras.
 
-## Getting Started
+## Escopo atual
 
-This project is a starting point for a Flutter application.
+- Android com leitura por camera
+- Web/Chrome com entrada manual
+- Lista global unica com sincronizacao em tempo real
+- Operacao offline com sincronizacao posterior
+- Exportacao para PDF e XLSX
 
-A few resources to get you started if this is your first Flutter project:
+## Execucao local
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+```powershell
+flutter run -d chrome --dart-define=SUPABASE_URL=SEU_URL --dart-define=SUPABASE_ANON_KEY=SUA_KEY
+```
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Build Android
+
+```powershell
+flutter build apk --release --dart-define=SUPABASE_URL=SEU_URL --dart-define=SUPABASE_ANON_KEY=SUA_KEY
+```

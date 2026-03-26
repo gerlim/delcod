@@ -3,7 +3,7 @@ import 'package:barcode_app/features/auth/domain/current_session.dart';
 import 'package:barcode_app/features/auth/domain/login_request.dart';
 import 'package:barcode_app/features/companies/domain/company_access.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:supabase/supabase.dart';
 
 const technicalEmailDomain = 'barcode-app.test';
 
@@ -245,8 +245,8 @@ class SupabaseAuthRemoteDataSource implements AuthRemoteDataSource {
   Future<void> updateLastLogin(String userId) async {
     await _client
         .from('profiles')
-        .update({'ultimo_login': DateTime.now().toUtc().toIso8601String()})
-        .eq('id', userId);
+        .update({'ultimo_login': DateTime.now().toUtc().toIso8601String()}).eq(
+            'id', userId);
   }
 }
 

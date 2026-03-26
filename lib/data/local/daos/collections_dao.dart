@@ -5,7 +5,8 @@ import 'package:drift/drift.dart';
 part 'collections_dao.g.dart';
 
 @DriftAccessor(tables: [CollectionsTable])
-class CollectionsDao extends DatabaseAccessor<AppDatabase> with _$CollectionsDaoMixin {
+class CollectionsDao extends DatabaseAccessor<AppDatabase>
+    with _$CollectionsDaoMixin {
   CollectionsDao(super.db);
 
   Future<void> insertCollection(CollectionsTableCompanion entry) {
@@ -13,6 +14,7 @@ class CollectionsDao extends DatabaseAccessor<AppDatabase> with _$CollectionsDao
   }
 
   Future<List<CollectionsTableData>> listOpenCollections() {
-    return (select(collectionsTable)..where((t) => t.status.equals('open'))).get();
+    return (select(collectionsTable)..where((t) => t.status.equals('open')))
+        .get();
   }
 }

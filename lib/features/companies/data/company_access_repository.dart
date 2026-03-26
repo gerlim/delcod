@@ -2,7 +2,8 @@ import 'package:barcode_app/features/auth/application/auth_controller.dart';
 import 'package:barcode_app/features/companies/domain/company_access.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-final companyAccessRepositoryProvider = Provider<CompanyAccessRepository>((ref) {
+final companyAccessRepositoryProvider =
+    Provider<CompanyAccessRepository>((ref) {
   return SessionCompanyAccessRepository(ref);
 });
 

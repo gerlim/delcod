@@ -8,7 +8,8 @@ class CompanySwitcher extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final companies = ref.watch(availableCompaniesProvider);
-    final selectedCompany = ref.watch(activeCompanyControllerProvider).valueOrNull;
+    final selectedCompany =
+        ref.watch(activeCompanyControllerProvider).valueOrNull;
 
     return companies.when(
       data: (items) => DropdownMenu<String>(
@@ -23,7 +24,9 @@ class CompanySwitcher extends ConsumerWidget {
         ],
         onSelected: (value) {
           if (value != null) {
-            ref.read(activeCompanyControllerProvider.notifier).selectCompany(value);
+            ref
+                .read(activeCompanyControllerProvider.notifier)
+                .selectCompany(value);
           }
         },
       ),

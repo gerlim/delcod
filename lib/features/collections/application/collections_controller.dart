@@ -8,7 +8,9 @@ final collectionsControllerProvider =
 
 final collectionItemProvider =
     FutureProvider.family<CollectionItem?, String>((ref, collectionId) {
-  return ref.read(collectionsRepositoryProvider).findCollectionById(collectionId);
+  return ref
+      .read(collectionsRepositoryProvider)
+      .findCollectionById(collectionId);
 });
 
 class CollectionsController extends AsyncNotifier<List<CollectionItem>> {

@@ -86,8 +86,9 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
               ? LayoutBuilder(
                   builder: (context, constraints) {
                     final wide = constraints.maxWidth >= 1040;
-                    final columnWidth =
-                        wide ? (constraints.maxWidth - 16) / 2 : constraints.maxWidth;
+                    final columnWidth = wide
+                        ? (constraints.maxWidth - 16) / 2
+                        : constraints.maxWidth;
 
                     return SingleChildScrollView(
                       child: Wrap(
@@ -175,7 +176,8 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
                                   const SizedBox(height: 16),
                                   for (final company in fixedCompanies) ...[
                                     CheckboxListTile(
-                                      value: _selectedCompanies[company.code] ?? false,
+                                      value: _selectedCompanies[company.code] ??
+                                          false,
                                       title: Text(company.name),
                                       controlAffinity:
                                           ListTileControlAffinity.leading,
@@ -186,7 +188,8 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
                                         });
                                       },
                                     ),
-                                    if (_selectedCompanies[company.code] ?? false)
+                                    if (_selectedCompanies[company.code] ??
+                                        false)
                                       Padding(
                                         padding: const EdgeInsets.only(
                                           left: 16,
@@ -221,7 +224,8 @@ class _AdminUsersPageState extends ConsumerState<AdminUsersPage> {
                                             }
 
                                             setState(() {
-                                              _companyRoles[company.code] = value;
+                                              _companyRoles[company.code] =
+                                                  value;
                                             });
                                           },
                                         ),

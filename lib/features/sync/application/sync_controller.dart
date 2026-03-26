@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:barcode_app/features/sync/data/sync_repository.dart';
+import 'package:barcode_app/features/readings/data/readings_repository.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final syncControllerProvider = NotifierProvider<SyncController, SyncState>(
@@ -41,7 +41,7 @@ class SyncState {
       case SyncStatus.synced:
         return 'Sincronizado';
       case SyncStatus.failed:
-        return 'Falha na sincronização';
+        return 'Falha na sincronizacao';
     }
   }
 
@@ -65,11 +65,10 @@ class SyncController extends Notifier<SyncState> {
 
   @override
   SyncState build() {
-    final repository = ref.read(syncRepositoryProvider);
+    final repository = ref.read(readingsRepositoryProvider);
 
-    _connectivitySubscription =
-        repository.watchOnlineStatus().listen((isOnline) {
-      if (!isOnline) {
+    _connectivitySubscription = repository.watchOnlineStatus().listen((online) {
+      if (!online) {
         state = state.copyWith(
           status: SyncStatus.offline,
           clearError: true,
@@ -77,13 +76,13 @@ class SyncController extends Notifier<SyncState> {
         return;
       }
 
-      unawaited(syncNow());
+      unawaited(refresh());
     });
 
     if (ref.read(syncPollingEnabledProvider)) {
       _pollTimer = Timer.periodic(
-        const Duration(seconds: 30),
-        (_) => unawaited(syncNow()),
+        const Duration(seconds: 20),
+        (_) => unawaited(refresh()),
       );
     }
 
@@ -92,78 +91,44 @@ class SyncController extends Notifier<SyncState> {
       _connectivitySubscription?.cancel();
     });
 
-    unawaited(_loadInitialStatus());
+    unawaited(refresh());
     return const SyncState.initial();
   }
 
-  Future<void> syncNow() async {
-    final repository = ref.read(syncRepositoryProvider);
-    final isOnline = await repository.checkOnlineStatus();
+  Future<void> refresh() async {
+    final repository = ref.read(readingsRepositoryProvider);
+    final online = await repository.checkOnlineStatus();
 
-    if (!isOnline) {
+    if (!online) {
       state = state.copyWith(
         status: SyncStatus.offline,
+        pendingCount: await repository.pendingCount(),
         clearError: true,
       );
       return;
     }
 
-    final pending = await repository.listPendingOperations();
-    if (pending.isEmpty) {
+    final pendingBefore = await repository.pendingCount();
+    state = state.copyWith(
+      status: pendingBefore == 0 ? SyncStatus.synced : SyncStatus.syncing,
+      pendingCount: pendingBefore,
+      clearError: true,
+    );
+
+    try {
+      await repository.syncNow();
+      final pendingAfter = await repository.pendingCount();
       state = state.copyWith(
-        status: SyncStatus.synced,
-        pendingCount: 0,
+        status: pendingAfter == 0 ? SyncStatus.synced : SyncStatus.syncing,
+        pendingCount: pendingAfter,
         clearError: true,
       );
-      return;
-    }
-
-    state = state.copyWith(
-      status: SyncStatus.syncing,
-      pendingCount: pending.length,
-      clearError: true,
-    );
-
-    for (final operation in pending) {
-      try {
-        await repository.pushOperation(operation);
-        await repository.markCompleted(operation.id);
-      } catch (error) {
-        await repository.markFailed(operation.id, error.toString());
-        state = state.copyWith(
-          status: SyncStatus.failed,
-          pendingCount: pending.length,
-          lastError: error.toString(),
-        );
-        return;
-      }
-    }
-
-    final remaining = await repository.listPendingOperations();
-    state = state.copyWith(
-      status: remaining.isEmpty ? SyncStatus.synced : SyncStatus.syncing,
-      pendingCount: remaining.length,
-      clearError: true,
-    );
-  }
-
-  Future<void> _loadInitialStatus() async {
-    final repository = ref.read(syncRepositoryProvider);
-    final isOnline = await repository.checkOnlineStatus();
-
-    if (!isOnline) {
+    } catch (error) {
       state = state.copyWith(
-        status: SyncStatus.offline,
-        clearError: true,
+        status: SyncStatus.failed,
+        pendingCount: await repository.pendingCount(),
+        lastError: error.toString(),
       );
-      return;
     }
-
-    final pending = await repository.listPendingOperations();
-    state = state.copyWith(
-      status: pending.isEmpty ? SyncStatus.synced : SyncStatus.syncing,
-      pendingCount: pending.length,
-      clearError: true,
-    );
   }
 }

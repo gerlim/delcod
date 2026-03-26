@@ -34,7 +34,7 @@ void main() {
       const LoginPage(),
     );
 
-    expect(find.text('Barcode App'), findsOneWidget);
+    expect(find.text('Delcod'), findsOneWidget);
     expect(find.text('Empresa'), findsOneWidget);
     expect(find.text('Matrícula'), findsOneWidget);
     expect(find.text('Senha'), findsOneWidget);

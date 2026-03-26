@@ -1,56 +1,87 @@
-import 'package:barcode_app/features/audit/data/audit_repository.dart';
-import 'package:barcode_app/features/auth/application/current_session_provider.dart';
+import 'dart:async';
+
 import 'package:barcode_app/features/readings/data/readings_repository.dart';
 import 'package:barcode_app/features/readings/domain/duplicate_decision.dart';
-import 'package:barcode_app/features/readings/domain/reading_input.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final readingsControllerProvider =
-    AsyncNotifierProviderFamily<ReadingsController, List<ReadingItem>, String>(
-        ReadingsController.new);
+    AsyncNotifierProvider<ReadingsController, List<ReadingItem>>(
+  ReadingsController.new,
+);
 
-class ReadingsController
-    extends FamilyAsyncNotifier<List<ReadingItem>, String> {
+class ReadingsController extends AsyncNotifier<List<ReadingItem>> {
+  StreamSubscription<List<ReadingItem>>? _subscription;
+
   @override
-  Future<List<ReadingItem>> build(String arg) {
-    return ref.read(readingsRepositoryProvider).listByCollection(arg);
+  Future<List<ReadingItem>> build() async {
+    final repository = ref.read(readingsRepositoryProvider);
+    _subscription = repository.watchActive().listen((items) {
+      state = AsyncData(items);
+    });
+    ref.onDispose(() => _subscription?.cancel());
+    return repository.fetchActive();
   }
 
-  Future<DuplicateDecision> registerReading(ReadingInput input) async {
-    final repository = ref.read(readingsRepositoryProvider);
-    final exists =
-        await repository.existsInCollection(input.collectionId, input.code);
+  Future<DuplicateDecision> addCode(
+    String code, {
+    required String source,
+    bool forceDuplicate = false,
+  }) async {
+    final normalized = code.trim();
+    if (normalized.isEmpty) {
+      return DuplicateDecision.saved;
+    }
 
-    if (exists) {
+    final repository = ref.read(readingsRepositoryProvider);
+    final exists = await repository.existsCode(normalized);
+    if (exists && !forceDuplicate) {
       return DuplicateDecision.warning;
     }
 
-    await repository.saveReading(input);
-    state = AsyncData(await repository.listByCollection(input.collectionId));
+    await repository.addCode(
+      code: normalized,
+      source: source,
+    );
+    state = AsyncData(await repository.fetchActive());
     return DuplicateDecision.saved;
   }
 
-  Future<void> deleteReading(ReadingItem item) async {
-    final session = ref.read(currentSessionProvider);
-    if (!_canManageReadings(session?.roles ?? const {})) {
-      throw StateError('Sem permissão para excluir leituras.');
+  Future<DuplicateDecision> updateCode({
+    required String id,
+    required String newCode,
+    bool forceDuplicate = false,
+  }) async {
+    final normalized = newCode.trim();
+    if (normalized.isEmpty) {
+      return DuplicateDecision.saved;
     }
 
     final repository = ref.read(readingsRepositoryProvider);
-    await repository.deleteReading(item.id);
-    await ref.read(auditRepositoryProvider).recordDelete(
-          actorId: session?.userId ?? 'desconhecido',
-          targetId: item.id,
-          targetType: 'reading',
-        );
-    state = AsyncData(await repository.listByCollection(item.collectionId));
+    final exists = await repository.existsCode(
+      normalized,
+      excludingId: id,
+    );
+    if (exists && !forceDuplicate) {
+      return DuplicateDecision.warning;
+    }
+
+    await repository.updateCode(
+      id: id,
+      newCode: normalized,
+    );
+    state = AsyncData(await repository.fetchActive());
+    return DuplicateDecision.saved;
   }
 
-  bool _canManageReadings(Set<String> roles) {
-    return roles.contains('admin') ||
-        roles.contains('gestor') ||
-        roles.contains('manager') ||
-        roles.contains('operador') ||
-        roles.contains('operator');
+  Future<void> deleteCode(String id) async {
+    final repository = ref.read(readingsRepositoryProvider);
+    await repository.softDelete(id);
+    state = AsyncData(await repository.fetchActive());
+  }
+
+  Future<void> clearAll() async {
+    final repository = ref.read(readingsRepositoryProvider);
+    await repository.clearAll();
+    state = AsyncData(await repository.fetchActive());
   }
 }

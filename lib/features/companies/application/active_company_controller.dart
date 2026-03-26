@@ -15,8 +15,9 @@ final activeCompanyControllerProvider =
 class ActiveCompanyController extends AsyncNotifier<String?> {
   @override
   Future<String?> build() async {
-    final companies =
-        await ref.read(companyAccessRepositoryProvider).listAvailableCompanies();
+    final companies = await ref
+        .read(companyAccessRepositoryProvider)
+        .listAvailableCompanies();
     final session = await ref.read(authControllerProvider.future);
 
     if (session?.activeCompanyId case final String companyId?) {

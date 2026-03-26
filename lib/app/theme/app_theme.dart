@@ -101,8 +101,9 @@ ThemeData buildAppTheme() {
           color: states.contains(WidgetState.selected)
               ? AppColors.signalTeal
               : AppColors.steel,
-          fontWeight:
-              states.contains(WidgetState.selected) ? FontWeight.w700 : FontWeight.w600,
+          fontWeight: states.contains(WidgetState.selected)
+              ? FontWeight.w700
+              : FontWeight.w600,
         ),
       ),
     ),

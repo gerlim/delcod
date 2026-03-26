@@ -33,21 +33,24 @@ class _ManualEntryFormState extends State<ManualEntryForm> {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final compact = MediaQuery.sizeOf(context).width < 560;
+    final input = TextField(
+      controller: _controller,
+      decoration: const InputDecoration(
+        labelText: 'Codigo',
+      ),
+      onSubmitted: (_) => _submit(),
+    );
+
+    return Flex(
+      direction: compact ? Axis.vertical : Axis.horizontal,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: TextField(
-            controller: _controller,
-            decoration: const InputDecoration(
-              labelText: 'Código',
-            ),
-            onSubmitted: (_) => _submit(),
-          ),
-        ),
-        const SizedBox(width: 12),
+        if (compact) input else Expanded(child: input),
+        SizedBox(width: compact ? 0 : 12, height: compact ? 12 : 0),
         FilledButton(
           onPressed: _submit,
-          child: const Text('Adicionar código'),
+          child: const Text('Adicionar'),
         ),
       ],
     );

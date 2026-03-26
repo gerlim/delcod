@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('permite envio manual de um código', (tester) async {
+  testWidgets('permite envio manual de um codigo', (tester) async {
     String? submitted;
 
     await tester.pumpWidget(
@@ -17,7 +17,7 @@ void main() {
     );
 
     await tester.enterText(find.byType(TextField), '7891234567890');
-    await tester.tap(find.text('Adicionar código'));
+    await tester.tap(find.text('Adicionar'));
     await tester.pump();
 
     expect(submitted, '7891234567890');

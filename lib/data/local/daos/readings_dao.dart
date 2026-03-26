@@ -5,7 +5,8 @@ import 'package:drift/drift.dart';
 part 'readings_dao.g.dart';
 
 @DriftAccessor(tables: [ReadingsTable])
-class ReadingsDao extends DatabaseAccessor<AppDatabase> with _$ReadingsDaoMixin {
+class ReadingsDao extends DatabaseAccessor<AppDatabase>
+    with _$ReadingsDaoMixin {
   ReadingsDao(super.db);
 
   Future<void> insertReading(ReadingsTableCompanion entry) {
@@ -13,6 +14,8 @@ class ReadingsDao extends DatabaseAccessor<AppDatabase> with _$ReadingsDaoMixin 
   }
 
   Future<List<ReadingsTableData>> listByCollection(String collectionId) {
-    return (select(readingsTable)..where((t) => t.collectionId.equals(collectionId))).get();
+    return (select(readingsTable)
+          ..where((t) => t.collectionId.equals(collectionId)))
+        .get();
   }
 }

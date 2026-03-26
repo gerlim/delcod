@@ -26,7 +26,8 @@ class CurrentSession {
       resolvedRoles.add(role);
       switch (role) {
         case 'admin_global':
-          resolvedRoles.addAll(const {'admin', 'manager', 'operator', 'reader'});
+          resolvedRoles
+              .addAll(const {'admin', 'manager', 'operator', 'reader'});
         case 'gestor_global':
           resolvedRoles.addAll(const {'manager', 'operator', 'reader'});
       }
