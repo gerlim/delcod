@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:barcode_app/features/readings/data/readings_repository.dart';
 import 'package:barcode_app/features/readings/domain/duplicate_decision.dart';
+import 'package:barcode_app/features/readings/domain/import_commit_result.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final readingsControllerProvider =
@@ -83,5 +84,59 @@ class ReadingsController extends AsyncNotifier<List<ReadingItem>> {
     final repository = ref.read(readingsRepositoryProvider);
     await repository.clearAll();
     state = AsyncData(await repository.fetchActive());
+  }
+
+  Future<ImportCommitResult> importCodes(
+    List<String> codes, {
+    required bool includeDuplicates,
+  }) async {
+    final normalizedCodes = codes
+        .map((code) => code.replaceAll(RegExp(r'\s+'), '').trim())
+        .where((code) => code.isNotEmpty)
+        .toList(growable: false);
+
+    if (normalizedCodes.isEmpty) {
+      return const ImportCommitResult(
+        importedCount: 0,
+        skippedDuplicates: 0,
+      );
+    }
+
+    final repository = ref.read(readingsRepositoryProvider);
+    final activeItems = await repository.fetchActive();
+    final existingCodes = activeItems.map((item) => item.code).toSet();
+    final seenInImport = <String>{};
+    final codesToImport = <String>[];
+    var skippedDuplicates = 0;
+
+    for (final code in normalizedCodes) {
+      final duplicate =
+          existingCodes.contains(code) || seenInImport.contains(code);
+
+      if (duplicate) {
+        if (includeDuplicates) {
+          codesToImport.add(code);
+        } else {
+          skippedDuplicates += 1;
+        }
+        continue;
+      }
+
+      seenInImport.add(code);
+      codesToImport.add(code);
+    }
+
+    if (codesToImport.isNotEmpty) {
+      await repository.addCodesBatch(
+        codes: codesToImport,
+        source: 'import',
+      );
+    }
+
+    state = AsyncData(await repository.fetchActive());
+    return ImportCommitResult(
+      importedCount: codesToImport.length,
+      skippedDuplicates: includeDuplicates ? 0 : skippedDuplicates,
+    );
   }
 }

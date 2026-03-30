@@ -1,0 +1,72 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:barcode_app/features/import/data/reading_import_service.dart';
+import 'package:excel/excel.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  group('ReadingImportService', () {
+    test('le CSV com cabecalho, detecta colunas e resume duplicados', () {
+      const service = ReadingImportService();
+      final bytes = Uint8List.fromList(
+        utf8.encode(
+          'Codigo;Descricao\n789123;Item A\n456789;Item B\n',
+        ),
+      );
+
+      final table = service.parseFile(
+        filename: 'leituras.csv',
+        bytes: bytes,
+      );
+      final analysis = service.buildAnalysis(
+        table: table,
+        selectedColumnIndex: 0,
+        hasHeader: true,
+        existingCodes: {'789123'},
+      );
+
+      expect(table.columnCount, 2);
+      expect(table.suggestedHasHeader, isTrue);
+      expect(table.columnLabelAt(0, hasHeader: true), 'Codigo');
+      expect(table.columnLabelAt(1, hasHeader: true), 'Descricao');
+      expect(analysis.totalCodes, 2);
+      expect(analysis.newCodes, ['456789']);
+      expect(analysis.duplicateCodes, ['789123']);
+    });
+
+    test('le XLSX sem cabecalho e usa rotulo padrao de coluna', () {
+      const service = ReadingImportService();
+      final workbook = Excel.createExcel();
+      final sheet = workbook['Leituras'];
+
+      sheet.appendRow([
+        TextCellValue('111'),
+        TextCellValue('Primeira'),
+      ]);
+      sheet.appendRow([
+        TextCellValue('222'),
+        TextCellValue('Segunda'),
+      ]);
+
+      final bytes = Uint8List.fromList(workbook.encode()!);
+      final table = service.parseFile(
+        filename: 'leituras.xlsx',
+        bytes: bytes,
+      );
+      final analysis = service.buildAnalysis(
+        table: table,
+        selectedColumnIndex: 0,
+        hasHeader: false,
+        existingCodes: const {},
+      );
+
+      expect(table.columnCount, 2);
+      expect(table.columnLabelAt(0, hasHeader: false), 'Coluna A');
+      expect(table.columnLabelAt(1, hasHeader: false), 'Coluna B');
+      expect(analysis.totalCodes, 2);
+      expect(analysis.newCodes, ['111', '222']);
+      expect(analysis.duplicateCodes, isEmpty);
+    });
+  });
+}

@@ -33,6 +33,7 @@ void main() {
     expect(find.text('DelCod'), findsOneWidget);
     expect(find.text('Codigos ativos'), findsOneWidget);
     expect(find.text('Sincronizado'), findsOneWidget);
+    expect(find.text('Importar arquivo'), findsOneWidget);
     expect(find.text('Exportar XLSX'), findsOneWidget);
     expect(find.text('Exportar PDF'), findsOneWidget);
   });
@@ -142,6 +143,14 @@ class _StaticReadingsRepository implements ReadingsRepository {
   @override
   Future<ReadingItem> addCode({
     required String code,
+    required String source,
+  }) async {
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<List<ReadingItem>> addCodesBatch({
+    required List<String> codes,
     required String source,
   }) async {
     throw UnimplementedError();

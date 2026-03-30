@@ -2,56 +2,14 @@ import 'dart:async';
 
 import 'package:barcode_app/features/readings/application/readings_controller.dart';
 import 'package:barcode_app/features/readings/data/readings_repository.dart';
-import 'package:barcode_app/features/readings/domain/duplicate_decision.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('avisa duplicidade e permite salvar quando confirmado', () async {
+  test('importa somente novos ou todo o lote conforme a escolha', () async {
     final repository = _FakeReadingsRepository(
       seeded: [
-        _item(
-          id: 'a',
-          code: '7891234567890',
-          source: 'camera',
-        ),
-      ],
-    );
-
-    final container = ProviderContainer(
-      overrides: [
-        readingsRepositoryProvider.overrideWithValue(repository),
-      ],
-    );
-    addTearDown(container.dispose);
-
-    await container.read(readingsControllerProvider.future);
-
-    final warning =
-        await container.read(readingsControllerProvider.notifier).addCode(
-              '7891234567890',
-              source: 'camera',
-            );
-
-    final saved =
-        await container.read(readingsControllerProvider.notifier).addCode(
-              '7891234567890',
-              source: 'camera',
-              forceDuplicate: true,
-            );
-
-    final items = await container.read(readingsControllerProvider.future);
-
-    expect(warning, DuplicateDecision.warning);
-    expect(saved, DuplicateDecision.saved);
-    expect(items, hasLength(2));
-  });
-
-  test('edita, exclui e limpa todos os codigos ativos', () async {
-    final repository = _FakeReadingsRepository(
-      seeded: [
-        _item(id: 'a', code: '111', source: 'camera'),
-        _item(id: 'b', code: '222', source: 'manual'),
+        _item(id: 'a', code: '111', source: 'manual'),
       ],
     );
 
@@ -65,18 +23,24 @@ void main() {
     await container.read(readingsControllerProvider.future);
     final notifier = container.read(readingsControllerProvider.notifier);
 
-    await notifier.updateCode(
-      id: 'a',
-      newCode: '333',
+    final importOnlyNew = await notifier.importCodes(
+      ['111', '222', '222', '333'],
+      includeDuplicates: false,
     );
-    await notifier.deleteCode('b');
 
-    var items = await container.read(readingsControllerProvider.future);
-    expect(items.map((item) => item.code), ['333']);
+    expect(importOnlyNew.importedCount, 2);
+    expect(importOnlyNew.skippedDuplicates, 2);
 
-    await notifier.clearAll();
-    items = await container.read(readingsControllerProvider.future);
-    expect(items, isEmpty);
+    final importAll = await notifier.importCodes(
+      ['444', '444'],
+      includeDuplicates: true,
+    );
+
+    expect(importAll.importedCount, 2);
+    expect(importAll.skippedDuplicates, 0);
+
+    final items = await container.read(readingsControllerProvider.future);
+    expect(items.map((item) => item.code), ['444', '444', '333', '222', '111']);
   });
 }
 
@@ -152,7 +116,7 @@ class _FakeReadingsRepository implements ReadingsRepository {
         id: 'generated-${_items.length + 1}',
         code: code,
         source: source,
-        updatedAt: DateTime(2026, 3, 25, 10),
+        updatedAt: DateTime(2026, 3, 25, 10, 0, _items.length + 1),
         deletedAt: null,
         deviceId: 'device-a',
       );

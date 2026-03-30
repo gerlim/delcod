@@ -35,6 +35,14 @@ class _RouterReadingsRepository implements ReadingsRepository {
   }
 
   @override
+  Future<List<ReadingItem>> addCodesBatch({
+    required List<String> codes,
+    required String source,
+  }) async {
+    throw UnimplementedError();
+  }
+
+  @override
   Future<bool> checkOnlineStatus() async => true;
 
   @override

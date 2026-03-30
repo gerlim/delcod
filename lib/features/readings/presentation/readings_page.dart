@@ -7,6 +7,9 @@ import 'package:barcode_app/core/platform/platform_capabilities.dart';
 import 'package:barcode_app/features/export/data/pdf_export_service.dart';
 import 'package:barcode_app/features/export/data/xlsx_export_service.dart';
 import 'package:barcode_app/features/export/domain/export_readings_payload.dart';
+import 'package:barcode_app/features/import/data/reading_import_picker.dart';
+import 'package:barcode_app/features/import/data/reading_import_service.dart';
+import 'package:barcode_app/features/import/presentation/import_readings_dialog.dart';
 import 'package:barcode_app/features/readings/application/readings_controller.dart';
 import 'package:barcode_app/features/readings/data/readings_repository.dart';
 import 'package:barcode_app/features/readings/domain/duplicate_decision.dart';
@@ -124,6 +127,11 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
                                                     }
                                                   });
                                                 },
+                                                onImportFile: () => _importFile(
+                                                  existingCodes: items
+                                                      .map((item) => item.code)
+                                                      .toSet(),
+                                                ),
                                                 onExportXlsx:
                                                     exportItems.isEmpty
                                                         ? null
@@ -196,6 +204,11 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
                                             }
                                           });
                                         },
+                                        onImportFile: () => _importFile(
+                                          existingCodes: items
+                                              .map((item) => item.code)
+                                              .toSet(),
+                                        ),
                                         onExportXlsx: exportItems.isEmpty
                                             ? null
                                             : () => _exportXlsx(exportItems),
@@ -477,6 +490,68 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
     );
   }
 
+  Future<void> _importFile({
+    required Set<String> existingCodes,
+  }) async {
+    final pickedFile = await ref.read(readingImportPickerProvider).pickFile();
+    if (pickedFile == null) {
+      return;
+    }
+
+    try {
+      final table = ref.read(readingImportServiceProvider).parseFile(
+            filename: pickedFile.name,
+            bytes: pickedFile.bytes,
+          );
+
+      if (!mounted) {
+        return;
+      }
+
+      final result = await showDialog<ImportDialogResult>(
+        context: context,
+        builder: (context) {
+          return ImportReadingsDialog(
+            filename: pickedFile.name,
+            table: table,
+            existingCodes: existingCodes,
+          );
+        },
+      );
+
+      if (!mounted || result == null) {
+        return;
+      }
+
+      final commitResult =
+          await ref.read(readingsControllerProvider.notifier).importCodes(
+                result.analysis.extractedCodes,
+                includeDuplicates:
+                    result.decision == ImportDialogDecision.all,
+              );
+
+      if (!mounted) {
+        return;
+      }
+
+      _showFeedback(
+        commitResult.skippedDuplicates > 0
+            ? '${commitResult.importedCount} codigos importados. ${commitResult.skippedDuplicates} duplicados ignorados.'
+            : '${commitResult.importedCount} codigos importados.',
+      );
+    } on FormatException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showFeedback(error.message);
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      _showFeedback('Nao foi possivel importar o arquivo.');
+    }
+  }
+
   Future<void> _downloadExport({
     required Uint8List bytes,
     required String filename,
@@ -707,6 +782,7 @@ class _ActionsSection extends StatelessWidget {
     required this.allSelected,
     required this.hasSelection,
     required this.onToggleSelectAll,
+    required this.onImportFile,
     required this.onExportXlsx,
     required this.onExportPdf,
     required this.onClearAll,
@@ -716,6 +792,7 @@ class _ActionsSection extends StatelessWidget {
   final bool allSelected;
   final bool hasSelection;
   final VoidCallback onToggleSelectAll;
+  final VoidCallback onImportFile;
   final VoidCallback? onExportXlsx;
   final VoidCallback? onExportPdf;
   final VoidCallback? onClearAll;
@@ -744,6 +821,12 @@ class _ActionsSection extends StatelessWidget {
                 ),
           ),
           const SizedBox(height: 16),
+          _ActionButton(
+            icon: Icons.file_upload_outlined,
+            label: 'Importar arquivo',
+            onPressed: onImportFile,
+          ),
+          const SizedBox(height: 12),
           _ActionButton(
             icon: allSelected
                 ? Icons.deselect_outlined
@@ -973,9 +1056,11 @@ class _ReadingCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    item.source == 'camera'
-                        ? 'Origem: camera'
-                        : 'Origem: manual',
+                    switch (item.source) {
+                      'camera' => 'Origem: camera',
+                      'import' => 'Origem: importacao',
+                      _ => 'Origem: manual',
+                    },
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: AppColors.steel,
                         ),

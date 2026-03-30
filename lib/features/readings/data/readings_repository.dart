@@ -36,6 +36,10 @@ abstract class ReadingsRepository {
     required String code,
     required String source,
   });
+  Future<List<ReadingItem>> addCodesBatch({
+    required List<String> codes,
+    required String source,
+  });
   Future<void> updateCode({
     required String id,
     required String newCode,
@@ -120,6 +124,41 @@ class OfflineFirstReadingsRepository implements ReadingsRepository {
 
     _upsertLocal(created);
     await _queueMutation(created);
+    unawaited(syncNow());
+    return created;
+  }
+
+  @override
+  Future<List<ReadingItem>> addCodesBatch({
+    required List<String> codes,
+    required String source,
+  }) async {
+    await _ensureInitialized();
+    if (codes.isEmpty) {
+      return const <ReadingItem>[];
+    }
+
+    final now = DateTime.now().toUtc();
+    final deviceId = await _deviceId();
+    final created = codes
+        .asMap()
+        .entries
+        .map(
+          (entry) => ReadingItem(
+            id: _uuid.v4(),
+            code: entry.value,
+            source: source,
+            updatedAt: now.add(Duration(milliseconds: entry.key)),
+            deletedAt: null,
+            deviceId: deviceId,
+          ),
+        )
+        .toList(growable: false);
+
+    _entries.addAll(created);
+    await _persistEntries();
+    await _queueMutations(created);
+    _emitEntries();
     unawaited(syncNow());
     return created;
   }
