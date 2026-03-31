@@ -32,6 +32,7 @@ Cada leitura passa a conter, alem dos campos atuais:
 - `classificationStatus`: `identified`, `ambiguous` ou `unknown`
 - `classificationCandidates`: lista ordenada, sem duplicatas, contendo apenas ids de tipo, por exemplo `["paper_bobbin", "paper_sheet"]`
 - `detailsPayload`: objeto JSON ou `null`, com dados especificos do tipo quando houver parsing disponivel
+- `metadataPayload`: objeto JSON ou `null`, com metadados adicionais capturados por importacao ou enriquecimento futuro
 - `schemaVersion`: versao do formato estrutural da leitura
 
 Defaults canonicos:
@@ -40,6 +41,7 @@ Defaults canonicos:
 - `classificationStatus = unknown`
 - `classificationCandidates = []`
 - `detailsPayload = null`
+- `metadataPayload = null`
 - `schemaVersion = 1`
 
 Nesta fase, `detailsPayload` deve permanecer pequeno e serializavel em JSON plano para nao aumentar risco no cache local e na sincronizacao remota.
@@ -50,14 +52,17 @@ Combinacao canonica por status:
   - `codeType = <tipo identificado>`
   - `classificationCandidates = []`
   - `detailsPayload = objeto JSON ou null`
+  - `metadataPayload = objeto JSON ou null`
 - `ambiguous`
   - `codeType = unknown`
   - `classificationCandidates = lista ordenada e sem duplicatas, com 2 ou mais candidatos`
   - `detailsPayload = null`
+  - `metadataPayload = objeto JSON ou null`
 - `unknown`
   - `codeType = unknown`
   - `classificationCandidates = []`
   - `detailsPayload = null`
+  - `metadataPayload = objeto JSON ou null`
 
 ## Classification Pipeline
 
@@ -132,6 +137,7 @@ Wire format canonico:
 - `classification_status`: string
 - `classification_candidates`: array JSON
 - `details_payload`: objeto JSON ou `null`
+- `metadata_payload`: objeto JSON ou `null`
 - `schema_version`: inteiro
 
 ## Impacted Areas
@@ -140,6 +146,8 @@ Wire format canonico:
 - `ReadingsRepository`: passa a persistir os novos campos por meio de um contrato estruturado de entrada, mantendo compatibilidade temporaria com a API atual ate o controller e as fakes migrarem
 - `shared_readings`: ganha colunas estruturais
 - scanner, entrada manual e importacao: passam a usar o mesmo pipeline de classificacao
+- importacao: ganha suporte interno para mapear colunas extras em `metadataPayload`, sem expor isso na UI ainda
+- reprocessamento: ganha um fluxo interno para recalcular classificacao preservando `metadataPayload`
 
 ## Non-Goals
 

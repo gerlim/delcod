@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:barcode_app/features/import/data/reading_import_service.dart';
 import 'package:barcode_app/features/readings/application/readings_controller.dart';
 import 'package:barcode_app/features/readings/data/readings_repository.dart';
 import 'package:barcode_app/features/readings/domain/reading_classification.dart';
@@ -52,6 +53,39 @@ void main() {
       isTrue,
     );
   });
+
+  test('importa entradas estruturadas preservando metadados por linha', () async {
+    final repository = _FakeReadingsRepository();
+    final container = ProviderContainer(
+      overrides: [
+        readingsRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await container.read(readingsControllerProvider.future);
+    final notifier = container.read(readingsControllerProvider.notifier);
+
+    final result = await notifier.importReadings(
+      const [
+        ImportedReadingEntry(
+          code: '7891234567890',
+          metadata: {
+            'batch': 'L-01',
+            'weight': '14,6',
+          },
+        ),
+      ],
+      includeDuplicates: false,
+    );
+
+    final items = await container.read(readingsControllerProvider.future);
+    expect(result.importedCount, 1);
+    expect(items.single.metadataPayload, const {
+      'batch': 'L-01',
+      'weight': '14,6',
+    });
+  });
 }
 
 ReadingItem _item({
@@ -102,6 +136,7 @@ class _FakeReadingsRepository implements ReadingsRepository {
     required String code,
     required String source,
     ReadingClassification? classification,
+    Map<String, dynamic>? metadataPayload,
   }) async {
     final created = ReadingItem(
       id: 'generated-${_items.length + 1}',
@@ -111,6 +146,7 @@ class _FakeReadingsRepository implements ReadingsRepository {
       deletedAt: null,
       deviceId: 'device-a',
       classification: classification,
+      metadataPayload: metadataPayload,
     );
     _items.add(created);
     _emit();
@@ -122,6 +158,7 @@ class _FakeReadingsRepository implements ReadingsRepository {
     required List<String> codes,
     required String source,
     List<ReadingClassification>? classifications,
+    List<Map<String, dynamic>?>? metadataPayloads,
   }) async {
     final created = <ReadingItem>[];
     for (var index = 0; index < codes.length; index++) {
@@ -135,6 +172,8 @@ class _FakeReadingsRepository implements ReadingsRepository {
         deviceId: 'device-a',
         classification:
             index < (classifications?.length ?? 0) ? classifications![index] : null,
+        metadataPayload:
+            index < (metadataPayloads?.length ?? 0) ? metadataPayloads![index] : null,
       );
       _items.add(item);
       created.add(item);
@@ -148,12 +187,14 @@ class _FakeReadingsRepository implements ReadingsRepository {
     required String id,
     required String newCode,
     ReadingClassification? classification,
+    Map<String, dynamic>? metadataPayload,
   }) async {
     final index = _items.indexWhere((item) => item.id == id);
     _items[index] = _items[index].copyWith(
       code: newCode,
       updatedAt: DateTime(2026, 3, 25, 11),
       classification: classification,
+      metadataPayload: metadataPayload,
     );
     _emit();
   }

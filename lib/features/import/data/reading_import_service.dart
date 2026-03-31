@@ -57,19 +57,21 @@ class ReadingImportService {
     required int selectedColumnIndex,
     required bool hasHeader,
     required Set<String> existingCodes,
+    Map<String, int> metadataColumns = const {},
   }) {
-    final codes = table.extractCodes(
+    final entries = table.extractEntries(
       selectedColumnIndex: selectedColumnIndex,
       hasHeader: hasHeader,
+      metadataColumns: metadataColumns,
     );
 
     final knownCodes = existingCodes.map(_normalizeCode).toSet();
     final seenInFile = <String>{};
-    final newCodes = <String>[];
-    final duplicateCodes = <String>[];
+    final newEntries = <ImportedReadingEntry>[];
+    final duplicateEntries = <ImportedReadingEntry>[];
 
-    for (final code in codes) {
-      final normalized = _normalizeCode(code);
+    for (final entry in entries) {
+      final normalized = _normalizeCode(entry.code);
       if (normalized.isEmpty) {
         continue;
       }
@@ -77,20 +79,20 @@ class ReadingImportService {
       final duplicate =
           knownCodes.contains(normalized) || seenInFile.contains(normalized);
       if (duplicate) {
-        duplicateCodes.add(normalized);
+        duplicateEntries.add(entry.copyWith(code: normalized));
         continue;
       }
 
       seenInFile.add(normalized);
-      newCodes.add(normalized);
+      newEntries.add(entry.copyWith(code: normalized));
     }
 
     return ReadingImportAnalysis(
       columnLabel:
           table.columnLabelAt(selectedColumnIndex, hasHeader: hasHeader),
-      extractedCodes: codes,
-      newCodes: newCodes,
-      duplicateCodes: duplicateCodes,
+      entries: entries,
+      newEntries: newEntries,
+      duplicateEntries: duplicateEntries,
     );
   }
 
@@ -257,21 +259,60 @@ class ImportedTable {
     required int selectedColumnIndex,
     required bool hasHeader,
   }) {
+    return extractEntries(
+      selectedColumnIndex: selectedColumnIndex,
+      hasHeader: hasHeader,
+    ).map((entry) => entry.code).toList(growable: false);
+  }
+
+  List<ImportedReadingEntry> extractEntries({
+    required int selectedColumnIndex,
+    required bool hasHeader,
+    Map<String, int> metadataColumns = const {},
+  }) {
     final startIndex = hasHeader ? 1 : 0;
     if (selectedColumnIndex < 0 || selectedColumnIndex >= columnCount) {
-      return const <String>[];
+      return const <ImportedReadingEntry>[];
     }
 
-    final extracted = <String>[];
+    final extracted = <ImportedReadingEntry>[];
     for (var rowIndex = startIndex; rowIndex < rows.length; rowIndex++) {
       final row = rows[rowIndex];
-      final value = selectedColumnIndex < row.length ? row[selectedColumnIndex] : '';
+      final value =
+          selectedColumnIndex < row.length ? row[selectedColumnIndex] : '';
       final normalized = _normalizeCode(value);
       if (normalized.isNotEmpty) {
-        extracted.add(normalized);
+        extracted.add(
+          ImportedReadingEntry(
+            code: normalized,
+            metadata: _extractMetadata(
+              row: row,
+              metadataColumns: metadataColumns,
+            ),
+          ),
+        );
       }
     }
     return extracted;
+  }
+
+  Map<String, String> _extractMetadata({
+    required List<String> row,
+    required Map<String, int> metadataColumns,
+  }) {
+    final metadata = <String, String>{};
+    for (final entry in metadataColumns.entries) {
+      final index = entry.value;
+      if (index < 0 || index >= row.length) {
+        continue;
+      }
+      final value = row[index].trim();
+      if (value.isEmpty) {
+        continue;
+      }
+      metadata[entry.key] = value;
+    }
+    return metadata;
   }
 
   static String excelColumnLabel(int index) {
@@ -291,19 +332,45 @@ class ImportedTable {
 class ReadingImportAnalysis {
   const ReadingImportAnalysis({
     required this.columnLabel,
-    required this.extractedCodes,
-    required this.newCodes,
-    required this.duplicateCodes,
+    required this.entries,
+    required this.newEntries,
+    required this.duplicateEntries,
   });
 
   final String columnLabel;
-  final List<String> extractedCodes;
-  final List<String> newCodes;
-  final List<String> duplicateCodes;
+  final List<ImportedReadingEntry> entries;
+  final List<ImportedReadingEntry> newEntries;
+  final List<ImportedReadingEntry> duplicateEntries;
 
-  int get totalCodes => extractedCodes.length;
+  int get totalCodes => entries.length;
+  List<String> get extractedCodes =>
+      entries.map((entry) => entry.code).toList(growable: false);
+  List<String> get newCodes =>
+      newEntries.map((entry) => entry.code).toList(growable: false);
+  List<String> get duplicateCodes =>
+      duplicateEntries.map((entry) => entry.code).toList(growable: false);
 }
 
 String _normalizeCode(String value) {
   return value.replaceAll(RegExp(r'\s+'), '').trim();
+}
+
+class ImportedReadingEntry {
+  const ImportedReadingEntry({
+    required this.code,
+    this.metadata = const {},
+  });
+
+  final String code;
+  final Map<String, String> metadata;
+
+  ImportedReadingEntry copyWith({
+    String? code,
+    Map<String, String>? metadata,
+  }) {
+    return ImportedReadingEntry(
+      code: code ?? this.code,
+      metadata: metadata ?? this.metadata,
+    );
+  }
 }

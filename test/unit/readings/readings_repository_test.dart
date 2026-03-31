@@ -17,6 +17,10 @@ void main() {
       detailsPayload: const {
         'kind': 'bobbin',
       },
+      metadataPayload: const {
+        'batch': 'L-01',
+        'weight': '14.6',
+      },
       schemaVersion: 1,
     );
 
@@ -32,6 +36,10 @@ void main() {
       'classification_candidates': <String>[],
       'details_payload': {
         'kind': 'bobbin',
+      },
+      'metadata_payload': {
+        'batch': 'L-01',
+        'weight': '14.6',
       },
       'schema_version': 1,
     });
@@ -78,6 +86,7 @@ void main() {
     expect(item.classificationStatus, ReadingClassificationStatus.unknown);
     expect(item.classificationCandidates, isEmpty);
     expect(item.detailsPayload, isNull);
+    expect(item.metadataPayload, isNull);
     expect(item.schemaVersion, 1);
   });
 }

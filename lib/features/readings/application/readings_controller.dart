@@ -5,6 +5,7 @@ import 'package:barcode_app/features/readings/domain/duplicate_decision.dart';
 import 'package:barcode_app/features/readings/domain/import_commit_result.dart';
 import 'package:barcode_app/features/readings/domain/reading_classification.dart';
 import 'package:barcode_app/features/readings/domain/reading_type_classifier.dart';
+import 'package:barcode_app/features/import/data/reading_import_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final readingsControllerProvider =
@@ -62,6 +63,8 @@ class ReadingsController extends AsyncNotifier<List<ReadingItem>> {
     }
 
     final repository = ref.read(readingsRepositoryProvider);
+    final currentItems = await repository.fetchActive();
+    final current = _findItemById(currentItems, id);
     final exists = await repository.existsCode(
       normalized,
       excludingId: id,
@@ -75,6 +78,7 @@ class ReadingsController extends AsyncNotifier<List<ReadingItem>> {
       id: id,
       newCode: normalized,
       classification: classification,
+      metadataPayload: current?.metadataPayload,
     );
     state = AsyncData(await repository.fetchActive());
     return DuplicateDecision.saved;
@@ -96,12 +100,29 @@ class ReadingsController extends AsyncNotifier<List<ReadingItem>> {
     List<String> codes, {
     required bool includeDuplicates,
   }) async {
-    final normalizedCodes = codes
-        .map((code) => code.replaceAll(RegExp(r'\s+'), '').trim())
-        .where((code) => code.isNotEmpty)
+    return importReadings(
+      codes
+          .map((code) => ImportedReadingEntry(code: code))
+          .toList(growable: false),
+      includeDuplicates: includeDuplicates,
+    );
+  }
+
+  Future<ImportCommitResult> importReadings(
+    List<ImportedReadingEntry> entries, {
+    required bool includeDuplicates,
+  }) async {
+    final normalizedEntries = entries
+        .map(
+          (entry) => ImportedReadingEntry(
+            code: entry.code.replaceAll(RegExp(r'\s+'), '').trim(),
+            metadata: entry.metadata,
+          ),
+        )
+        .where((entry) => entry.code.isNotEmpty)
         .toList(growable: false);
 
-    if (normalizedCodes.isEmpty) {
+    if (normalizedEntries.isEmpty) {
       return const ImportCommitResult(
         importedCount: 0,
         skippedDuplicates: 0,
@@ -114,9 +135,11 @@ class ReadingsController extends AsyncNotifier<List<ReadingItem>> {
     final seenInImport = <String>{};
     final codesToImport = <String>[];
     final classifications = <ReadingClassification>[];
+    final metadataPayloads = <Map<String, dynamic>?>[];
     var skippedDuplicates = 0;
 
-    for (final code in normalizedCodes) {
+    for (final entry in normalizedEntries) {
+      final code = entry.code;
       final duplicate =
           existingCodes.contains(code) || seenInImport.contains(code);
 
@@ -124,6 +147,9 @@ class ReadingsController extends AsyncNotifier<List<ReadingItem>> {
         if (includeDuplicates) {
           codesToImport.add(code);
           classifications.add(_classify(code));
+          metadataPayloads.add(
+            entry.metadata.isEmpty ? null : Map<String, dynamic>.from(entry.metadata),
+          );
         } else {
           skippedDuplicates += 1;
         }
@@ -133,6 +159,9 @@ class ReadingsController extends AsyncNotifier<List<ReadingItem>> {
       seenInImport.add(code);
       codesToImport.add(code);
       classifications.add(_classify(code));
+      metadataPayloads.add(
+        entry.metadata.isEmpty ? null : Map<String, dynamic>.from(entry.metadata),
+      );
     }
 
     if (codesToImport.isNotEmpty) {
@@ -140,6 +169,7 @@ class ReadingsController extends AsyncNotifier<List<ReadingItem>> {
         codes: codesToImport,
         source: 'import',
         classifications: classifications,
+        metadataPayloads: metadataPayloads,
       );
     }
 
@@ -150,8 +180,31 @@ class ReadingsController extends AsyncNotifier<List<ReadingItem>> {
     );
   }
 
+  Future<void> reprocessClassifications() async {
+    final repository = ref.read(readingsRepositoryProvider);
+    final activeItems = await repository.fetchActive();
+    for (final item in activeItems) {
+      await repository.updateCode(
+        id: item.id,
+        newCode: item.code,
+        classification: _classify(item.code),
+        metadataPayload: item.metadataPayload,
+      );
+    }
+    state = AsyncData(await repository.fetchActive());
+  }
+
   ReadingClassification _classify(String code) {
     final classifier = ref.read(readingTypeClassifierProvider);
     return classifier.classify(code);
+  }
+
+  ReadingItem? _findItemById(List<ReadingItem> items, String id) {
+    for (final item in items) {
+      if (item.id == id) {
+        return item;
+      }
+    }
+    return null;
   }
 }

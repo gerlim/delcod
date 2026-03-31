@@ -29,6 +29,7 @@ class _SmokeReadingsRepository implements ReadingsRepository {
     required String code,
     required String source,
     ReadingClassification? classification,
+    Map<String, dynamic>? metadataPayload,
   }) async {
     throw UnimplementedError();
   }
@@ -38,6 +39,7 @@ class _SmokeReadingsRepository implements ReadingsRepository {
     required List<String> codes,
     required String source,
     List<ReadingClassification>? classifications,
+    List<Map<String, dynamic>?>? metadataPayloads,
   }) async {
     throw UnimplementedError();
   }
@@ -76,6 +78,7 @@ class _SmokeReadingsRepository implements ReadingsRepository {
     required String id,
     required String newCode,
     ReadingClassification? classification,
+    Map<String, dynamic>? metadataPayload,
   }) async {}
 
   @override

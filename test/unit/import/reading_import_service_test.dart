@@ -68,5 +68,41 @@ void main() {
       expect(analysis.newCodes, ['111', '222']);
       expect(analysis.duplicateCodes, isEmpty);
     });
+
+    test('extrai metadados opcionais por coluna sem mudar a regra de duplicidade', () {
+      const service = ReadingImportService();
+      final bytes = Uint8List.fromList(
+        utf8.encode(
+          'Codigo;Lote;Peso\n789123;L-10;14,6\n789123;L-11;14,7\n',
+        ),
+      );
+
+      final table = service.parseFile(
+        filename: 'leituras.csv',
+        bytes: bytes,
+      );
+      final analysis = service.buildAnalysis(
+        table: table,
+        selectedColumnIndex: 0,
+        hasHeader: true,
+        existingCodes: const {},
+        metadataColumns: const {
+          'batch': 1,
+          'weight': 2,
+        },
+      );
+
+      expect(analysis.totalCodes, 2);
+      expect(analysis.newCodes, ['789123']);
+      expect(analysis.duplicateCodes, ['789123']);
+      expect(analysis.entries.first.metadata, const {
+        'batch': 'L-10',
+        'weight': '14,6',
+      });
+      expect(analysis.duplicateEntries.first.metadata, const {
+        'batch': 'L-11',
+        'weight': '14,7',
+      });
+    });
   });
 }

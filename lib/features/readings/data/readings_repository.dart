@@ -37,16 +37,19 @@ abstract class ReadingsRepository {
     required String code,
     required String source,
     ReadingClassification? classification,
+    Map<String, dynamic>? metadataPayload,
   });
   Future<List<ReadingItem>> addCodesBatch({
     required List<String> codes,
     required String source,
     List<ReadingClassification>? classifications,
+    List<Map<String, dynamic>?>? metadataPayloads,
   });
   Future<void> updateCode({
     required String id,
     required String newCode,
     ReadingClassification? classification,
+    Map<String, dynamic>? metadataPayload,
   });
   Future<void> softDelete(String id);
   Future<void> clearAll();
@@ -115,6 +118,7 @@ class OfflineFirstReadingsRepository implements ReadingsRepository {
     required String code,
     required String source,
     ReadingClassification? classification,
+    Map<String, dynamic>? metadataPayload,
   }) async {
     await _ensureInitialized();
     final now = DateTime.now().toUtc();
@@ -126,6 +130,7 @@ class OfflineFirstReadingsRepository implements ReadingsRepository {
       deletedAt: null,
       deviceId: await _deviceId(),
       classification: classification,
+      metadataPayload: metadataPayload,
     );
 
     _upsertLocal(created);
@@ -139,6 +144,7 @@ class OfflineFirstReadingsRepository implements ReadingsRepository {
     required List<String> codes,
     required String source,
     List<ReadingClassification>? classifications,
+    List<Map<String, dynamic>?>? metadataPayloads,
   }) async {
     await _ensureInitialized();
     if (codes.isEmpty) {
@@ -161,6 +167,9 @@ class OfflineFirstReadingsRepository implements ReadingsRepository {
             classification: entry.key < (classifications?.length ?? 0)
                 ? classifications![entry.key]
                 : null,
+            metadataPayload: entry.key < (metadataPayloads?.length ?? 0)
+                ? metadataPayloads![entry.key]
+                : null,
           ),
         )
         .toList(growable: false);
@@ -178,6 +187,7 @@ class OfflineFirstReadingsRepository implements ReadingsRepository {
     required String id,
     required String newCode,
     ReadingClassification? classification,
+    Map<String, dynamic>? metadataPayload,
   }) async {
     await _ensureInitialized();
     final current = _entries.firstWhere((item) => item.id == id);
@@ -187,6 +197,7 @@ class OfflineFirstReadingsRepository implements ReadingsRepository {
       deletedAt: null,
       deviceId: await _deviceId(),
       classification: classification,
+      metadataPayload: metadataPayload ?? current.metadataPayload,
     );
     _upsertLocal(updated);
     await _queueMutation(updated);
@@ -461,6 +472,7 @@ class ReadingItem {
         ReadingClassificationStatus.unknown,
     List<String> classificationCandidates = const <String>[],
     Map<String, dynamic>? detailsPayload,
+    Map<String, dynamic>? metadataPayload,
     int schemaVersion = 1,
     ReadingClassification? classification,
   })  : codeType = classification?.codeType ?? codeType,
@@ -469,6 +481,9 @@ class ReadingItem {
         classificationCandidates =
             classification?.classificationCandidates ?? classificationCandidates,
         detailsPayload = classification?.detailsPayload ?? detailsPayload,
+        metadataPayload = metadataPayload == null
+            ? null
+            : Map<String, dynamic>.unmodifiable(metadataPayload),
         schemaVersion = classification?.schemaVersion ?? schemaVersion;
 
   final String id;
@@ -481,6 +496,7 @@ class ReadingItem {
   final ReadingClassificationStatus classificationStatus;
   final List<String> classificationCandidates;
   final Map<String, dynamic>? detailsPayload;
+  final Map<String, dynamic>? metadataPayload;
   final int schemaVersion;
 
   ReadingItem copyWith({
@@ -494,6 +510,7 @@ class ReadingItem {
     ReadingClassificationStatus? classificationStatus,
     List<String>? classificationCandidates,
     Map<String, dynamic>? detailsPayload,
+    Map<String, dynamic>? metadataPayload,
     int? schemaVersion,
     ReadingClassification? classification,
   }) {
@@ -513,6 +530,7 @@ class ReadingItem {
           this.classificationCandidates,
       detailsPayload:
           classification?.detailsPayload ?? detailsPayload ?? this.detailsPayload,
+      metadataPayload: metadataPayload ?? this.metadataPayload,
       schemaVersion:
           classification?.schemaVersion ?? schemaVersion ?? this.schemaVersion,
     );
@@ -533,6 +551,7 @@ class ReadingItem {
         detailsPayload: detailsPayload,
         schemaVersion: schemaVersion,
       ).toJson(),
+      'metadata_payload': metadataPayload,
     };
   }
 
@@ -549,6 +568,7 @@ class ReadingItem {
           : DateTime.parse(json['deleted_at'] as String).toUtc(),
       deviceId: json['device_id'] as String? ?? 'unknown-device',
       classification: ReadingClassification.fromJson(json),
+      metadataPayload: _readMetadataPayload(json['metadata_payload']),
     );
   }
 
@@ -563,8 +583,19 @@ class ReadingItem {
           : DateTime.parse(json['deleted_at'] as String).toUtc(),
       deviceId: json['device_id'] as String? ?? 'unknown-device',
       classification: ReadingClassification.fromJson(json),
+      metadataPayload: _readMetadataPayload(json['metadata_payload']),
     );
   }
+}
+
+Map<String, dynamic>? _readMetadataPayload(Object? rawPayload) {
+  if (rawPayload is Map<String, dynamic>) {
+    return rawPayload;
+  }
+  if (rawPayload is Map) {
+    return Map<String, dynamic>.from(rawPayload);
+  }
+  return null;
 }
 
 class _PendingReadingMutation {
