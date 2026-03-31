@@ -10,8 +10,13 @@ void main() {
     final bytes = await service.buildFile(
       const ExportReadingsPayload(
         title: 'Lista global',
-        codes: [
-          '7891234567890',
+        rows: [
+          ExportReadingRow(
+            lot: '7891234567890',
+            warehouseCode: '05',
+            companyName: 'Bora Embalagens',
+            isPendingWarehouse: false,
+          ),
         ],
       ),
     );

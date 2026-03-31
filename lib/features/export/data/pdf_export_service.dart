@@ -29,13 +29,27 @@ class PdfExportService {
             ),
           ),
           pw.SizedBox(height: 8),
-          pw.Text('Total de codigos: ${payload.codes.length}'),
+          pw.Text('Total de lotes: ${payload.rows.length}'),
           pw.SizedBox(height: 16),
           pw.TableHelper.fromTextArray(
             headers: const [
-              'Codigo',
+              'Lote de Bobina',
+              'Armazem',
+              'Empresa',
+              'Status',
             ],
-            data: payload.codes.map((code) => [code]).toList(growable: false),
+            data: payload.rows
+                .map(
+                  (row) => [
+                    row.lot,
+                    row.warehouseCode ?? 'Nao informado',
+                    row.companyName ?? 'Pendente',
+                    row.isPendingWarehouse
+                        ? 'Sem armazem alocado'
+                        : 'Completo',
+                  ],
+                )
+                .toList(growable: false),
           ),
         ],
       ),

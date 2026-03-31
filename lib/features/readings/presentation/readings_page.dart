@@ -12,6 +12,7 @@ import 'package:barcode_app/features/import/data/reading_import_service.dart';
 import 'package:barcode_app/features/import/presentation/import_readings_dialog.dart';
 import 'package:barcode_app/features/readings/application/readings_controller.dart';
 import 'package:barcode_app/features/readings/data/readings_repository.dart';
+import 'package:barcode_app/features/readings/domain/bobbin_inventory_record.dart';
 import 'package:barcode_app/features/readings/domain/duplicate_decision.dart';
 import 'package:barcode_app/features/readings/presentation/android_scanner_view.dart';
 import 'package:barcode_app/features/readings/presentation/manual_entry_form.dart';
@@ -35,6 +36,7 @@ class ReadingsPage extends ConsumerStatefulWidget {
 
 class _ReadingsPageState extends ConsumerState<ReadingsPage> {
   final Set<String> _selectedIds = <String>{};
+  String? _selectedWarehouseCode;
 
   @override
   Widget build(BuildContext context) {
@@ -81,6 +83,10 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
                           _PageHeader(
                             totalCount: items.length,
                             selectedCount: selectedItems.length,
+                            pendingCount: items
+                                .map(BobbinInventoryRecord.fromItem)
+                                .where((record) => !record.hasWarehouseAllocated)
+                                .length,
                           ),
                           const SizedBox(height: 16),
                           const SyncStatusBanner(),
@@ -105,6 +111,11 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
                                                 totalCount: items.length,
                                                 selectedCount:
                                                     selectedItems.length,
+                                                pendingCount: items
+                                                    .map(BobbinInventoryRecord.fromItem)
+                                                    .where((record) =>
+                                                        !record.hasWarehouseAllocated)
+                                                    .length,
                                               ),
                                               const SizedBox(height: 16),
                                               _ActionsSection(
@@ -185,6 +196,11 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
                                       _SummarySection(
                                         totalCount: items.length,
                                         selectedCount: selectedItems.length,
+                                        pendingCount: items
+                                            .map(BobbinInventoryRecord.fromItem)
+                                            .where((record) =>
+                                                !record.hasWarehouseAllocated)
+                                            .length,
                                       ),
                                       const SizedBox(height: 16),
                                       _ActionsSection(
@@ -276,26 +292,55 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
           const SizedBox(height: 8),
           Text(
             capabilities.supportsCameraScanning
-                ? 'Use a camera do celular para adicionar codigos direto na lista global.'
-                : 'Digite ou cole o codigo manualmente para registrar na lista global.',
+                ? 'Use a camera do celular para registrar lotes de bobina e escolha o armazem no mesmo painel.'
+                : 'Digite ou cole o lote de bobina manualmente e defina o armazem quando souber.',
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   color: AppColors.steel,
                 ),
           ),
           const SizedBox(height: 18),
           if (capabilities.supportsCameraScanning)
-            AndroidScannerView(
-              onDetected: (value) => _addCode(
-                value,
-                source: 'camera',
-              ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AndroidScannerView(
+                  onDetected: (value) => _addCode(
+                    value,
+                    source: 'camera',
+                    warehouseCode: _selectedWarehouseCode,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                _WarehouseAllocationField(
+                  value: _selectedWarehouseCode,
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedWarehouseCode = value;
+                    });
+                  },
+                ),
+                const SizedBox(height: 10),
+                _WarehousePreviewText(
+                  warehouseCode: _selectedWarehouseCode,
+                ),
+              ],
             )
           else
             ManualEntryForm(
               onSubmit: (value) => _addCode(
                 value,
                 source: 'manual',
+                warehouseCode: _selectedWarehouseCode,
               ),
+              selectedWarehouseCode: _selectedWarehouseCode,
+              onWarehouseChanged: (value) {
+                setState(() {
+                  _selectedWarehouseCode = value;
+                });
+              },
+              warehouseOptions: _warehouseDropdownItems,
+              companyPreview:
+                  BobbinInventoryRecord.deriveCompanyName(_selectedWarehouseCode),
             ),
         ],
       ),
@@ -306,12 +351,14 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
     String code, {
     required String source,
     bool forceDuplicate = false,
+    String? warehouseCode,
   }) async {
     final decision =
         await ref.read(readingsControllerProvider.notifier).addCode(
               code,
               source: source,
               forceDuplicate: forceDuplicate,
+              warehouseCode: warehouseCode,
             );
 
     if (!mounted) {
@@ -330,47 +377,87 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
       return;
     }
 
-    _showFeedback('Codigo adicionado');
+    final savedRecord = BobbinInventoryRecord(
+      lot: code.trim(),
+      warehouseCode:
+          BobbinInventoryRecord.normalizeWarehouseCode(warehouseCode),
+      companyName: BobbinInventoryRecord.deriveCompanyName(warehouseCode),
+    );
+    _showFeedback(
+      savedRecord.hasWarehouseAllocated
+          ? 'Lote de bobina adicionado'
+          : 'Lote adicionado sem armazem. Ajuste depois na lista.',
+    );
   }
 
   Future<void> _showEditDialog(ReadingItem item) async {
-    final controller = TextEditingController(text: item.code);
-    final updatedCode = await showDialog<String>(
+    final inventoryRecord = BobbinInventoryRecord.fromItem(item);
+    final controller = TextEditingController(text: inventoryRecord.lot);
+    String? selectedWarehouseCode = inventoryRecord.warehouseCode;
+    final result = await showDialog<_EditReadingResult>(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: const Text('Editar codigo'),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            decoration: const InputDecoration(
-              labelText: 'Codigo',
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancelar'),
-            ),
-            FilledButton(
-              onPressed: () =>
-                  Navigator.of(context).pop(controller.text.trim()),
-              child: const Text('Salvar'),
-            ),
-          ],
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Editar lote de bobina'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextField(
+                    controller: controller,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Lote de Bobina',
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _WarehouseAllocationField(
+                    value: selectedWarehouseCode,
+                    onChanged: (value) {
+                      setState(() {
+                        selectedWarehouseCode = value;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  _WarehousePreviewText(
+                    warehouseCode: selectedWarehouseCode,
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancelar'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(context).pop(
+                    _EditReadingResult(
+                      lot: controller.text.trim(),
+                      warehouseCode: selectedWarehouseCode,
+                    ),
+                  ),
+                  child: const Text('Salvar'),
+                ),
+              ],
+            );
+          },
         );
       },
     );
     controller.dispose();
 
-    if (!mounted || updatedCode == null || updatedCode.isEmpty) {
+    if (!mounted || result == null || result.lot.isEmpty) {
       return;
     }
 
     final decision =
         await ref.read(readingsControllerProvider.notifier).updateCode(
               id: item.id,
-              newCode: updatedCode,
+              newCode: result.lot,
+              warehouseCode: result.warehouseCode,
             );
 
     if (decision == DuplicateDecision.warning) {
@@ -378,17 +465,18 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
       if (shouldContinue == true) {
         await ref.read(readingsControllerProvider.notifier).updateCode(
               id: item.id,
-              newCode: updatedCode,
+              newCode: result.lot,
               forceDuplicate: true,
+              warehouseCode: result.warehouseCode,
             );
         if (mounted) {
-          _showFeedback('Codigo atualizado');
+          _showFeedback('Lote de bobina atualizado');
         }
       }
       return;
     }
 
-    _showFeedback('Codigo atualizado');
+    _showFeedback('Lote de bobina atualizado');
   }
 
   Future<void> _deleteItem(ReadingItem item) async {
@@ -397,7 +485,7 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
       return;
     }
     setState(() => _selectedIds.remove(item.id));
-    _showFeedback('Codigo removido');
+    _showFeedback('Lote removido');
   }
 
   Future<void> _confirmClearAll(BuildContext context) async {
@@ -442,7 +530,7 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
         return AlertDialog(
           title: const Text('Codigo duplicado'),
           content: const Text(
-            'Esse codigo ja esta na lista. Deseja continuar assim mesmo?',
+            'Esse lote ja esta na lista. Deseja continuar assim mesmo?',
           ),
           actions: [
             TextButton(
@@ -461,14 +549,11 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
 
   Future<void> _exportXlsx(List<ReadingItem> items) async {
     final bytes = ref.read(xlsxExportServiceProvider).buildFile(
-          ExportReadingsPayload(
-            title: widget.collectionTitle,
-            codes: items.map((item) => item.code).toList(growable: false),
-          ),
+          _buildExportPayload(items),
         );
     await _downloadExport(
       bytes: bytes,
-      filename: 'codigos.xlsx',
+      filename: 'lotes_bobina.xlsx',
       mimeType:
           'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       successMessage: 'Arquivo XLSX baixado',
@@ -477,14 +562,11 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
 
   Future<void> _exportPdf(List<ReadingItem> items) async {
     final bytes = await ref.read(pdfExportServiceProvider).buildFile(
-          ExportReadingsPayload(
-            title: widget.collectionTitle,
-            codes: items.map((item) => item.code).toList(growable: false),
-          ),
+          _buildExportPayload(items),
         );
     await _downloadExport(
       bytes: bytes,
-      filename: 'codigos.pdf',
+      filename: 'lotes_bobina.pdf',
       mimeType: 'application/pdf',
       successMessage: 'Arquivo PDF baixado',
     );
@@ -524,8 +606,8 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
       }
 
       final commitResult =
-          await ref.read(readingsControllerProvider.notifier).importCodes(
-                result.analysis.extractedCodes,
+          await ref.read(readingsControllerProvider.notifier).importReadings(
+                result.analysis.entries,
                 includeDuplicates:
                     result.decision == ImportDialogDecision.all,
               );
@@ -536,8 +618,8 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
 
       _showFeedback(
         commitResult.skippedDuplicates > 0
-            ? '${commitResult.importedCount} codigos importados. ${commitResult.skippedDuplicates} duplicados ignorados.'
-            : '${commitResult.importedCount} codigos importados.',
+            ? '${commitResult.importedCount} lotes importados. ${commitResult.skippedDuplicates} duplicados ignorados.'
+            : '${commitResult.importedCount} lotes importados.',
       );
     } on FormatException catch (error) {
       if (!mounted) {
@@ -580,23 +662,57 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
       SnackBar(content: Text(message)),
     );
   }
+
+  ExportReadingsPayload _buildExportPayload(List<ReadingItem> items) {
+    return ExportReadingsPayload(
+      title: widget.collectionTitle,
+      rows: items
+          .map((item) {
+            final record = BobbinInventoryRecord.fromItem(item);
+            return ExportReadingRow(
+              lot: record.lot,
+              warehouseCode: record.warehouseCode,
+              companyName: record.companyName,
+              isPendingWarehouse: !record.hasWarehouseAllocated,
+            );
+          })
+          .toList(growable: false),
+    );
+  }
+
+  List<DropdownMenuItem<String?>> get _warehouseDropdownItems {
+    return <DropdownMenuItem<String?>>[
+      const DropdownMenuItem<String?>(
+        value: null,
+        child: Text('Sem armazem definido'),
+      ),
+      ...BobbinInventoryRecord.warehouseOptions.map(
+        (option) => DropdownMenuItem<String?>(
+          value: option.code,
+          child: Text(option.label),
+        ),
+      ),
+    ];
+  }
 }
 
 class _PageHeader extends StatelessWidget {
   const _PageHeader({
     required this.totalCount,
     required this.selectedCount,
+    required this.pendingCount,
   });
 
   final int totalCount;
   final int selectedCount;
+  final int pendingCount;
 
   @override
   Widget build(BuildContext context) {
     return SectionHeader(
       title: 'DelCod',
       subtitle:
-          'Leitura rapida no Android, digitacao manual no navegador e lista global compartilhada em tempo real.',
+          'Inventario rapido de bobinas com leitura no Android, digitacao no navegador e lista global compartilhada em tempo real.',
       actions: [
         _HeaderPill(
           label: 'Ativos',
@@ -609,6 +725,12 @@ class _PageHeader extends StatelessWidget {
           value: '$selectedCount',
           icon: Icons.checklist_rounded,
           color: AppColors.alertAmber,
+        ),
+        _HeaderPill(
+          label: 'Pendentes',
+          value: '$pendingCount',
+          icon: Icons.warning_amber_rounded,
+          color: AppColors.faultRed,
         ),
       ],
     );
@@ -678,10 +800,12 @@ class _SummarySection extends StatelessWidget {
   const _SummarySection({
     required this.totalCount,
     required this.selectedCount,
+    required this.pendingCount,
   });
 
   final int totalCount;
   final int selectedCount;
+  final int pendingCount;
 
   @override
   Widget build(BuildContext context) {
@@ -708,7 +832,7 @@ class _SummarySection extends StatelessWidget {
             runSpacing: 12,
             children: [
               _SummaryTile(
-                label: 'Codigos ativos',
+                label: 'Bobinas ativas',
                 value: '$totalCount',
                 icon: Icons.inventory_2_outlined,
                 color: AppColors.signalTeal,
@@ -718,6 +842,12 @@ class _SummarySection extends StatelessWidget {
                 value: '$selectedCount',
                 icon: Icons.task_alt_outlined,
                 color: AppColors.alertAmber,
+              ),
+              _SummaryTile(
+                label: 'Sem armazem',
+                value: '$pendingCount',
+                icon: Icons.warning_amber_outlined,
+                color: AppColors.faultRed,
               ),
             ],
           ),
@@ -937,7 +1067,7 @@ class _ReadingsSection extends StatelessWidget {
                 Text(
                   selectedCount > 0
                       ? '$selectedCount itens selecionados para exportacao'
-                      : 'Todos os codigos registrados aparecem aqui em tempo real.',
+                      : 'Todos os lotes de bobina registrados aparecem aqui em tempo real.',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: AppColors.steel,
                       ),
@@ -1033,6 +1163,11 @@ class _ReadingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final inventoryRecord = BobbinInventoryRecord.fromItem(item);
+    final statusColor = inventoryRecord.hasWarehouseAllocated
+        ? AppColors.signalTeal
+        : AppColors.faultRed;
+
     return Card.outlined(
       margin: EdgeInsets.zero,
       child: Padding(
@@ -1049,12 +1184,39 @@ class _ReadingCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    item.code,
+                    'Lote de Bobina',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: AppColors.steel,
+                          fontWeight: FontWeight.w700,
+                        ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    inventoryRecord.lot,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.w700,
                         ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _ReadingMetaChip(
+                        label: 'Armazem ${inventoryRecord.warehouseLabel}',
+                        color: inventoryRecord.hasWarehouseAllocated
+                            ? AppColors.signalTeal
+                            : AppColors.faultRed,
+                      ),
+                      _ReadingMetaChip(
+                        label: inventoryRecord.companyLabel,
+                        color: inventoryRecord.companyName == null
+                            ? AppColors.faultRed
+                            : AppColors.alertAmber,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
                   Text(
                     switch (item.source) {
                       'camera' => 'Origem: camera',
@@ -1063,6 +1225,14 @@ class _ReadingCard extends StatelessWidget {
                     },
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: AppColors.steel,
+                        ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    inventoryRecord.statusLabel,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: statusColor,
+                          fontWeight: FontWeight.w700,
                         ),
                   ),
                 ],
@@ -1104,7 +1274,7 @@ class _EmptyState extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         Text(
-          'Nenhum codigo registrado',
+          'Nenhum lote registrado',
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w700,
               ),
@@ -1112,7 +1282,7 @@ class _EmptyState extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'Use a leitura por camera no Android ou a entrada manual no navegador para comecar.',
+          'Use a leitura por camera no Android ou a entrada manual no navegador para comecar o inventario de bobinas.',
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                 color: AppColors.steel,
               ),
@@ -1121,4 +1291,102 @@ class _EmptyState extends StatelessWidget {
       ],
     );
   }
+}
+
+class _WarehouseAllocationField extends StatelessWidget {
+  const _WarehouseAllocationField({
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String? value;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButtonFormField<String?>(
+      value: value,
+      isExpanded: true,
+      decoration: const InputDecoration(
+        labelText: 'Armazem',
+      ),
+      items: <DropdownMenuItem<String?>>[
+        const DropdownMenuItem<String?>(
+          value: null,
+          child: Text('Sem armazem definido'),
+        ),
+        ...BobbinInventoryRecord.warehouseOptions.map(
+          (option) => DropdownMenuItem<String?>(
+            value: option.code,
+            child: Text(option.label),
+          ),
+        ),
+      ],
+      onChanged: onChanged,
+    );
+  }
+}
+
+class _WarehousePreviewText extends StatelessWidget {
+  const _WarehousePreviewText({
+    required this.warehouseCode,
+  });
+
+  final String? warehouseCode;
+
+  @override
+  Widget build(BuildContext context) {
+    final companyName = BobbinInventoryRecord.deriveCompanyName(warehouseCode);
+    final message = companyName == null
+        ? 'Sem armazem selecionado, o lote entra como pendente.'
+        : 'Empresa derivada automaticamente: $companyName';
+
+    return Text(
+      message,
+      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: companyName == null
+                ? AppColors.faultRed
+                : AppColors.signalTeal,
+            fontWeight: FontWeight.w700,
+          ),
+    );
+  }
+}
+
+class _ReadingMetaChip extends StatelessWidget {
+  const _ReadingMetaChip({
+    required this.label,
+    required this.color,
+  });
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
+      ),
+    );
+  }
+}
+
+class _EditReadingResult {
+  const _EditReadingResult({
+    required this.lot,
+    required this.warehouseCode,
+  });
+
+  final String lot;
+  final String? warehouseCode;
 }

@@ -16,12 +16,20 @@ class XlsxExportService {
     final sheet = workbook['Leituras'];
 
     sheet.appendRow([
-      TextCellValue('Codigo'),
+      TextCellValue('Lote de Bobina'),
+      TextCellValue('Armazem'),
+      TextCellValue('Empresa'),
+      TextCellValue('Status'),
     ]);
 
-    for (final code in payload.codes) {
+    for (final row in payload.rows) {
       sheet.appendRow([
-        TextCellValue(code),
+        TextCellValue(row.lot),
+        TextCellValue(row.warehouseCode ?? 'Nao informado'),
+        TextCellValue(row.companyName ?? 'Pendente'),
+        TextCellValue(
+          row.isPendingWarehouse ? 'Sem armazem alocado' : 'Completo',
+        ),
       ]);
     }
 

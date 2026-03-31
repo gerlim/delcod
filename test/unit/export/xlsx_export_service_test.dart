@@ -9,9 +9,19 @@ void main() {
     final bytes = service.buildFile(
       const ExportReadingsPayload(
         title: 'Lista global',
-        codes: [
-          '7891234567890',
-          '2223334445556',
+        rows: [
+          ExportReadingRow(
+            lot: '7891234567890',
+            warehouseCode: '05',
+            companyName: 'Bora Embalagens',
+            isPendingWarehouse: false,
+          ),
+          ExportReadingRow(
+            lot: '2223334445556',
+            warehouseCode: null,
+            companyName: null,
+            isPendingWarehouse: true,
+          ),
         ],
       ),
     );
@@ -22,9 +32,15 @@ void main() {
     expect(sheet, isNotNull);
     expect(
       sheet!.rows.first.map((cell) => cell?.value?.toString()).toList(),
-      ['Codigo'],
+      ['Lote de Bobina', 'Armazem', 'Empresa', 'Status'],
     );
     expect(sheet.rows[1][0]?.value.toString(), '7891234567890');
+    expect(sheet.rows[1][1]?.value.toString(), '05');
+    expect(sheet.rows[1][2]?.value.toString(), 'Bora Embalagens');
+    expect(sheet.rows[1][3]?.value.toString(), 'Completo');
     expect(sheet.rows[2][0]?.value.toString(), '2223334445556');
+    expect(sheet.rows[2][1]?.value.toString(), 'Nao informado');
+    expect(sheet.rows[2][2]?.value.toString(), 'Pendente');
+    expect(sheet.rows[2][3]?.value.toString(), 'Sem armazem alocado');
   });
 }

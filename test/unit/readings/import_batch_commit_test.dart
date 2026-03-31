@@ -84,6 +84,7 @@ void main() {
     expect(items.single.metadataPayload, const {
       'batch': 'L-01',
       'weight': '14,6',
+      'bobbin_lot': '7891234567890',
     });
   });
 }

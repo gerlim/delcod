@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:barcode_app/features/readings/data/readings_repository.dart';
 import 'package:barcode_app/features/readings/domain/duplicate_decision.dart';
 import 'package:barcode_app/features/readings/domain/import_commit_result.dart';
+import 'package:barcode_app/features/readings/domain/bobbin_inventory_record.dart';
 import 'package:barcode_app/features/readings/domain/reading_classification.dart';
 import 'package:barcode_app/features/readings/domain/reading_type_classifier.dart';
 import 'package:barcode_app/features/import/data/reading_import_service.dart';
@@ -30,6 +31,7 @@ class ReadingsController extends AsyncNotifier<List<ReadingItem>> {
     String code, {
     required String source,
     bool forceDuplicate = false,
+    String? warehouseCode,
   }) async {
     final normalized = code.trim();
     if (normalized.isEmpty) {
@@ -47,6 +49,10 @@ class ReadingsController extends AsyncNotifier<List<ReadingItem>> {
       code: normalized,
       source: source,
       classification: classification,
+      metadataPayload: BobbinInventoryRecord.buildMetadata(
+        lot: normalized,
+        warehouseCode: warehouseCode,
+      ),
     );
     state = AsyncData(await repository.fetchActive());
     return DuplicateDecision.saved;
@@ -56,6 +62,7 @@ class ReadingsController extends AsyncNotifier<List<ReadingItem>> {
     required String id,
     required String newCode,
     bool forceDuplicate = false,
+    String? warehouseCode,
   }) async {
     final normalized = newCode.trim();
     if (normalized.isEmpty) {
@@ -78,7 +85,14 @@ class ReadingsController extends AsyncNotifier<List<ReadingItem>> {
       id: id,
       newCode: normalized,
       classification: classification,
-      metadataPayload: current?.metadataPayload,
+      metadataPayload: BobbinInventoryRecord.buildMetadata(
+        lot: normalized,
+        warehouseCode: warehouseCode ??
+            (current == null
+                ? null
+                : BobbinInventoryRecord.fromItem(current).warehouseCode),
+        seed: current?.metadataPayload,
+      ),
     );
     state = AsyncData(await repository.fetchActive());
     return DuplicateDecision.saved;
@@ -142,14 +156,17 @@ class ReadingsController extends AsyncNotifier<List<ReadingItem>> {
       final code = entry.code;
       final duplicate =
           existingCodes.contains(code) || seenInImport.contains(code);
+      final metadataPayload = BobbinInventoryRecord.buildMetadata(
+        lot: code,
+        warehouseCode: entry.metadata['warehouse_code'],
+        seed: Map<String, dynamic>.from(entry.metadata),
+      );
 
       if (duplicate) {
         if (includeDuplicates) {
           codesToImport.add(code);
           classifications.add(_classify(code));
-          metadataPayloads.add(
-            entry.metadata.isEmpty ? null : Map<String, dynamic>.from(entry.metadata),
-          );
+          metadataPayloads.add(metadataPayload);
         } else {
           skippedDuplicates += 1;
         }
@@ -159,9 +176,7 @@ class ReadingsController extends AsyncNotifier<List<ReadingItem>> {
       seenInImport.add(code);
       codesToImport.add(code);
       classifications.add(_classify(code));
-      metadataPayloads.add(
-        entry.metadata.isEmpty ? null : Map<String, dynamic>.from(entry.metadata),
-      );
+      metadataPayloads.add(metadataPayload);
     }
 
     if (codesToImport.isNotEmpty) {

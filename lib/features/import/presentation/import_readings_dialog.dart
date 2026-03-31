@@ -38,6 +38,7 @@ class _ImportReadingsDialogState extends State<ImportReadingsDialog> {
 
   late bool _hasHeader = widget.table.suggestedHasHeader;
   int _selectedColumnIndex = 0;
+  int? _selectedWarehouseColumnIndex;
 
   @override
   Widget build(BuildContext context) {
@@ -46,6 +47,11 @@ class _ImportReadingsDialogState extends State<ImportReadingsDialog> {
       selectedColumnIndex: _selectedColumnIndex,
       hasHeader: _hasHeader,
       existingCodes: widget.existingCodes,
+      metadataColumns: _selectedWarehouseColumnIndex == null
+          ? const {}
+          : <String, int>{
+              'warehouse_code': _selectedWarehouseColumnIndex!,
+            },
     );
     final previewRows = widget.table.previewRows(hasHeader: _hasHeader);
     final canImport = analysis.totalCodes > 0;
@@ -86,8 +92,9 @@ class _ImportReadingsDialogState extends State<ImportReadingsDialog> {
               const SizedBox(height: 12),
               DropdownButtonFormField<int>(
                 value: _selectedColumnIndex,
+                isExpanded: true,
                 decoration: const InputDecoration(
-                  labelText: 'Coluna com os codigos',
+                  labelText: 'Coluna com os lotes de bobina',
                 ),
                 items: List<DropdownMenuItem<int>>.generate(
                   widget.table.columnCount,
@@ -107,6 +114,37 @@ class _ImportReadingsDialogState extends State<ImportReadingsDialog> {
                   }
                   setState(() {
                     _selectedColumnIndex = value;
+                  });
+                },
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<int?>(
+                value: _selectedWarehouseColumnIndex,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Coluna com o armazem (opcional)',
+                ),
+                items: [
+                  const DropdownMenuItem<int?>(
+                    value: null,
+                    child: Text('Sem coluna de armazem'),
+                  ),
+                  ...List<DropdownMenuItem<int?>>.generate(
+                    widget.table.columnCount,
+                    (index) => DropdownMenuItem<int?>(
+                      value: index,
+                      child: Text(
+                        widget.table.columnLabelAt(
+                          index,
+                          hasHeader: _hasHeader,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+                onChanged: (value) {
+                  setState(() {
+                    _selectedWarehouseColumnIndex = value;
                   });
                 },
               ),
@@ -150,6 +188,15 @@ class _ImportReadingsDialogState extends State<ImportReadingsDialog> {
                   _SummaryPill(
                     label: 'Coluna usada',
                     value: analysis.columnLabel,
+                  ),
+                  _SummaryPill(
+                    label: 'Armazem',
+                    value: _selectedWarehouseColumnIndex == null
+                        ? 'Nao importado'
+                        : widget.table.columnLabelAt(
+                            _selectedWarehouseColumnIndex!,
+                            hasHeader: _hasHeader,
+                          ),
                   ),
                 ],
               ),

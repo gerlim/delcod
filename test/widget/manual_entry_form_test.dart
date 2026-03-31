@@ -11,6 +11,15 @@ void main() {
         home: Scaffold(
           body: ManualEntryForm(
             onSubmit: (value) => submitted = value,
+            selectedWarehouseCode: null,
+            onWarehouseChanged: (_) {},
+            warehouseOptions: const [
+              DropdownMenuItem<String?>(
+                value: null,
+                child: Text('Sem armazem definido'),
+              ),
+            ],
+            companyPreview: null,
           ),
         ),
       ),

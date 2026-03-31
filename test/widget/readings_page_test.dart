@@ -32,7 +32,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('DelCod'), findsOneWidget);
-    expect(find.text('Codigos ativos'), findsOneWidget);
+    expect(find.text('Bobinas ativas'), findsOneWidget);
     expect(find.text('Sincronizado'), findsOneWidget);
     expect(find.text('Importar arquivo'), findsOneWidget);
     expect(find.text('Exportar XLSX'), findsOneWidget);
@@ -51,6 +51,11 @@ void main() {
           updatedAt: DateTime.parse('2026-03-25T22:40:00Z'),
           deletedAt: null,
           deviceId: 'web',
+          metadataPayload: const {
+            'warehouse_code': '05',
+            'warehouse_company': 'Bora Embalagens',
+            'bobbin_lot': '789123',
+          },
         ),
       ],
     );
@@ -89,6 +94,8 @@ void main() {
     expect(find.text('Acoes da lista'), findsOneWidget);
     expect(inputCardFinder, findsOneWidget);
     expect(listCardFinder, findsOneWidget);
+    expect(find.text('Lote de Bobina'), findsAtLeastNWidgets(1));
+    expect(find.textContaining('Armazem'), findsAtLeastNWidgets(1));
     expect(
       tester.getTopLeft(listCardFinder).dx,
       greaterThan(tester.getTopLeft(inputCardFinder).dx + 300),
