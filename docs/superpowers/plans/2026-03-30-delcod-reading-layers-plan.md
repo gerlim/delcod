@@ -4,22 +4,23 @@
 
 **Goal:** Preparar o DelCod para suportar futuras camadas de leitura sem alterar a interface atual, classificando leituras automaticamente e persistindo metadados estruturais.
 
-**Architecture:** O app continuará operando com uma lista global única, mas toda leitura passará por um classificador interno antes de ser persistida. O armazenamento local e remoto será expandido para carregar tipo, status de classificação, candidatos e payload específico por camada.
+**Architecture:** O app continuara operando com uma lista global unica, mas toda leitura passara por um classificador interno antes de ser persistida. O armazenamento local e remoto sera expandido para carregar tipo, status de classificacao, candidatos e payload especifico por camada.
 
-**Tech Stack:** Flutter, Riverpod, SharedPreferences, Supabase, Dart unit/widget tests
+**Tech Stack:** Flutter, Riverpod, SharedPreferences, Supabase, Dart unit and widget tests
 
 ---
 
-### Task 1: Introduzir o modelo estrutural de leitura
+### Task 1: Introduzir o modelo estrutural e a camada compativel do repositorio
 
 **Files:**
 - Create: `lib/features/readings/domain/reading_classification.dart`
+- Create: `lib/features/readings/domain/classified_reading_input.dart`
 - Modify: `lib/features/readings/data/readings_repository.dart`
 - Test: `test/unit/readings/readings_repository_test.dart`
 
 - [ ] **Step 1: Write the failing test**
 
-Criar testes cobrindo uma leitura com tipo identificado e uma leitura com tipo desconhecido, esperando que o repositório preserve os novos campos estruturais.
+Criar testes cobrindo uma leitura com tipo identificado, uma leitura ambigua e uma leitura com tipo desconhecido, esperando que o repositorio preserve os novos campos estruturais com o shape canonico por status.
 
 - [ ] **Step 2: Run test to verify it fails**
 
@@ -28,12 +29,14 @@ Expected: FAIL because the repository model does not expose the new fields yet.
 
 - [ ] **Step 3: Write minimal implementation**
 
-Adicionar um modelo de classificação comum e expandir `ReadingItem` para carregar:
-- `readingType`
+Adicionar um modelo de classificacao comum e expandir `ReadingItem` para carregar:
+- `codeType`
 - `classificationStatus`
 - `classificationCandidates`
 - `detailsPayload`
 - `schemaVersion`
+
+Tambem criar o contrato de entrada estruturada usado para transportar o resultado do classificador ate o repositorio. Esse contrato entra primeiro como camada compativel: a API atual do repositorio continua compilando, com parametros estruturais opcionais e defaults, ate o controller e as fakes migrarem na tarefa seguinte.
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -43,7 +46,7 @@ Expected: PASS
 - [ ] **Step 5: Commit**
 
 ```bash
-git add lib/features/readings/domain/reading_classification.dart lib/features/readings/data/readings_repository.dart test/unit/readings/readings_repository_test.dart
+git add lib/features/readings/domain/reading_classification.dart lib/features/readings/domain/classified_reading_input.dart lib/features/readings/data/readings_repository.dart test/unit/readings/readings_repository_test.dart
 git commit -m "feat: add structural reading classification model"
 ```
 
@@ -57,9 +60,9 @@ git commit -m "feat: add structural reading classification model"
 - [ ] **Step 1: Write the failing test**
 
 Cobrir:
-- código identificado como `paper_bobbin`
-- código ambíguo com múltiplos candidatos
-- código desconhecido
+- codigo identificado como `paper_bobbin`
+- codigo ambiguo com multiplos candidatos
+- codigo desconhecido
 
 - [ ] **Step 2: Run test to verify it fails**
 
@@ -68,7 +71,7 @@ Expected: FAIL because no classifier exists.
 
 - [ ] **Step 3: Write minimal implementation**
 
-Criar definições de tipo com:
+Criar definicoes de tipo com:
 - `paper_bobbin`
 - `paper_sheet` como stub
 - `unknown`
@@ -87,39 +90,45 @@ git add lib/features/readings/domain/reading_type_definition.dart lib/features/r
 git commit -m "feat: add reading type classifier"
 ```
 
-### Task 3: Encaixar a classificação no fluxo atual
+### Task 3: Encaixar a classificacao no fluxo atual
 
 **Files:**
 - Modify: `lib/features/readings/application/readings_controller.dart`
-- Modify: `lib/features/import/data/reading_import_service.dart`
 - Test: `test/unit/readings/readings_controller_test.dart`
+- Test: `test/unit/readings/import_batch_commit_test.dart`
 
 - [ ] **Step 1: Write the failing test**
 
-Cobrir o fluxo de câmera/manual/importação garantindo que a persistência agora use o resultado do classificador.
+Cobrir o fluxo de camera, entrada manual e importacao garantindo que a persistencia agora use o resultado do classificador. Cobrir tambem edicao de codigo reclassificando o registro antes de persistir.
 
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `flutter test test/unit/readings/readings_controller_test.dart`
 Expected: FAIL because the controller still persists only raw codes.
 
+Run: `flutter test test/unit/readings/import_batch_commit_test.dart`
+Expected: FAIL because a importacao ainda nao usa o pipeline estrutural.
+
 - [ ] **Step 3: Write minimal implementation**
 
-Passar toda nova leitura pelo `ReadingTypeClassifier` antes de salvar, sem alterar o comportamento visual da tela.
+Passar toda nova leitura pelo `ReadingTypeClassifier` antes de salvar, reclassificar tambem em `updateCode`, e manter a importacao em lote usando o mesmo pipeline sem alterar o comportamento visual da tela.
 
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `flutter test test/unit/readings/readings_controller_test.dart`
 Expected: PASS
 
+Run: `flutter test test/unit/readings/import_batch_commit_test.dart`
+Expected: PASS
+
 - [ ] **Step 5: Commit**
 
 ```bash
-git add lib/features/readings/application/readings_controller.dart lib/features/import/data/reading_import_service.dart test/unit/readings/readings_controller_test.dart
+git add lib/features/readings/application/readings_controller.dart test/unit/readings/readings_controller_test.dart test/unit/readings/import_batch_commit_test.dart
 git commit -m "feat: classify readings before persistence"
 ```
 
-### Task 4: Expandir o esquema remoto e compatibilidade local
+### Task 4: Compatibilidade local e persistencia remota
 
 **Files:**
 - Create: `supabase/migrations/20260330xxxxxx_add_reading_layers.sql`
@@ -128,16 +137,16 @@ git commit -m "feat: classify readings before persistence"
 
 - [ ] **Step 1: Write the failing test**
 
-Cobrir serialização e desserialização de leituras antigas e novas, garantindo fallback para `unknown`.
+Cobrir serializacao e desserializacao de leituras antigas e novas, garantindo fallback para defaults canonicos tanto em registros ativos quanto na fila pendente.
 
 - [ ] **Step 2: Run test to verify it fails**
 
 Run: `flutter test test/unit/readings/readings_repository_test.dart`
-Expected: FAIL because old/new shapes are not both supported yet.
+Expected: FAIL because old and new shapes are not both supported yet.
 
 - [ ] **Step 3: Write minimal implementation**
 
-Adicionar migração remota e fallback compatível no armazenamento local para leituras que ainda não tenham os novos campos.
+Adicionar migracao remota e fallback compativel no armazenamento local para leituras que ainda nao tenham os novos campos, incluindo leitura e regravacao segura da fila pendente offline.
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -151,7 +160,7 @@ git add supabase/migrations/20260330xxxxxx_add_reading_layers.sql lib/features/r
 git commit -m "feat: persist reading layer metadata"
 ```
 
-### Task 5: Verificação final e entrega
+### Task 5: Verificacao final e entrega
 
 **Files:**
 - Modify: `docs/superpowers/specs/2026-03-30-delcod-reading-layers-design.md`
@@ -164,8 +173,14 @@ Expected: PASS
 
 - [ ] **Step 2: Run full verification**
 
+Run: `flutter test`
+Expected: PASS
+
 Run: `flutter analyze`
 Expected: PASS with no issues
+
+Run: `flutter test test/widget/readings_page_test.dart test/widget/app_router_test.dart test/widget/smoke_test.dart`
+Expected: PASS
 
 - [ ] **Step 3: Build web and Android**
 

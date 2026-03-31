@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:barcode_app/features/readings/data/readings_repository.dart';
 import 'package:barcode_app/features/readings/domain/duplicate_decision.dart';
 import 'package:barcode_app/features/readings/domain/import_commit_result.dart';
+import 'package:barcode_app/features/readings/domain/reading_classification.dart';
+import 'package:barcode_app/features/readings/domain/reading_type_classifier.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 final readingsControllerProvider =
@@ -39,9 +41,11 @@ class ReadingsController extends AsyncNotifier<List<ReadingItem>> {
       return DuplicateDecision.warning;
     }
 
+    final classification = _classify(normalized);
     await repository.addCode(
       code: normalized,
       source: source,
+      classification: classification,
     );
     state = AsyncData(await repository.fetchActive());
     return DuplicateDecision.saved;
@@ -66,9 +70,11 @@ class ReadingsController extends AsyncNotifier<List<ReadingItem>> {
       return DuplicateDecision.warning;
     }
 
+    final classification = _classify(normalized);
     await repository.updateCode(
       id: id,
       newCode: normalized,
+      classification: classification,
     );
     state = AsyncData(await repository.fetchActive());
     return DuplicateDecision.saved;
@@ -107,6 +113,7 @@ class ReadingsController extends AsyncNotifier<List<ReadingItem>> {
     final existingCodes = activeItems.map((item) => item.code).toSet();
     final seenInImport = <String>{};
     final codesToImport = <String>[];
+    final classifications = <ReadingClassification>[];
     var skippedDuplicates = 0;
 
     for (final code in normalizedCodes) {
@@ -116,6 +123,7 @@ class ReadingsController extends AsyncNotifier<List<ReadingItem>> {
       if (duplicate) {
         if (includeDuplicates) {
           codesToImport.add(code);
+          classifications.add(_classify(code));
         } else {
           skippedDuplicates += 1;
         }
@@ -124,12 +132,14 @@ class ReadingsController extends AsyncNotifier<List<ReadingItem>> {
 
       seenInImport.add(code);
       codesToImport.add(code);
+      classifications.add(_classify(code));
     }
 
     if (codesToImport.isNotEmpty) {
       await repository.addCodesBatch(
         codes: codesToImport,
         source: 'import',
+        classifications: classifications,
       );
     }
 
@@ -138,5 +148,10 @@ class ReadingsController extends AsyncNotifier<List<ReadingItem>> {
       importedCount: codesToImport.length,
       skippedDuplicates: includeDuplicates ? 0 : skippedDuplicates,
     );
+  }
+
+  ReadingClassification _classify(String code) {
+    final classifier = ref.read(readingTypeClassifierProvider);
+    return classifier.classify(code);
   }
 }

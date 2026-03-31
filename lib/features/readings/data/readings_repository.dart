@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:barcode_app/data/remote/supabase/supabase_client_provider.dart';
+import 'package:barcode_app/features/readings/domain/reading_classification.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -35,14 +36,17 @@ abstract class ReadingsRepository {
   Future<ReadingItem> addCode({
     required String code,
     required String source,
+    ReadingClassification? classification,
   });
   Future<List<ReadingItem>> addCodesBatch({
     required List<String> codes,
     required String source,
+    List<ReadingClassification>? classifications,
   });
   Future<void> updateCode({
     required String id,
     required String newCode,
+    ReadingClassification? classification,
   });
   Future<void> softDelete(String id);
   Future<void> clearAll();
@@ -110,6 +114,7 @@ class OfflineFirstReadingsRepository implements ReadingsRepository {
   Future<ReadingItem> addCode({
     required String code,
     required String source,
+    ReadingClassification? classification,
   }) async {
     await _ensureInitialized();
     final now = DateTime.now().toUtc();
@@ -120,6 +125,7 @@ class OfflineFirstReadingsRepository implements ReadingsRepository {
       updatedAt: now,
       deletedAt: null,
       deviceId: await _deviceId(),
+      classification: classification,
     );
 
     _upsertLocal(created);
@@ -132,6 +138,7 @@ class OfflineFirstReadingsRepository implements ReadingsRepository {
   Future<List<ReadingItem>> addCodesBatch({
     required List<String> codes,
     required String source,
+    List<ReadingClassification>? classifications,
   }) async {
     await _ensureInitialized();
     if (codes.isEmpty) {
@@ -151,6 +158,9 @@ class OfflineFirstReadingsRepository implements ReadingsRepository {
             updatedAt: now.add(Duration(milliseconds: entry.key)),
             deletedAt: null,
             deviceId: deviceId,
+            classification: entry.key < (classifications?.length ?? 0)
+                ? classifications![entry.key]
+                : null,
           ),
         )
         .toList(growable: false);
@@ -167,6 +177,7 @@ class OfflineFirstReadingsRepository implements ReadingsRepository {
   Future<void> updateCode({
     required String id,
     required String newCode,
+    ReadingClassification? classification,
   }) async {
     await _ensureInitialized();
     final current = _entries.firstWhere((item) => item.id == id);
@@ -175,6 +186,7 @@ class OfflineFirstReadingsRepository implements ReadingsRepository {
       updatedAt: DateTime.now().toUtc(),
       deletedAt: null,
       deviceId: await _deviceId(),
+      classification: classification,
     );
     _upsertLocal(updated);
     await _queueMutation(updated);
@@ -437,14 +449,27 @@ class OfflineFirstReadingsRepository implements ReadingsRepository {
 
 @immutable
 class ReadingItem {
-  const ReadingItem({
+  ReadingItem({
     required this.id,
     required this.code,
     required this.source,
     required this.updatedAt,
     required this.deletedAt,
     required this.deviceId,
-  });
+    String codeType = 'unknown',
+    ReadingClassificationStatus classificationStatus =
+        ReadingClassificationStatus.unknown,
+    List<String> classificationCandidates = const <String>[],
+    Map<String, dynamic>? detailsPayload,
+    int schemaVersion = 1,
+    ReadingClassification? classification,
+  })  : codeType = classification?.codeType ?? codeType,
+        classificationStatus =
+            classification?.classificationStatus ?? classificationStatus,
+        classificationCandidates =
+            classification?.classificationCandidates ?? classificationCandidates,
+        detailsPayload = classification?.detailsPayload ?? detailsPayload,
+        schemaVersion = classification?.schemaVersion ?? schemaVersion;
 
   final String id;
   final String code;
@@ -452,6 +477,11 @@ class ReadingItem {
   final DateTime updatedAt;
   final DateTime? deletedAt;
   final String deviceId;
+  final String codeType;
+  final ReadingClassificationStatus classificationStatus;
+  final List<String> classificationCandidates;
+  final Map<String, dynamic>? detailsPayload;
+  final int schemaVersion;
 
   ReadingItem copyWith({
     String? id,
@@ -460,6 +490,12 @@ class ReadingItem {
     DateTime? updatedAt,
     DateTime? deletedAt,
     String? deviceId,
+    String? codeType,
+    ReadingClassificationStatus? classificationStatus,
+    List<String>? classificationCandidates,
+    Map<String, dynamic>? detailsPayload,
+    int? schemaVersion,
+    ReadingClassification? classification,
   }) {
     return ReadingItem(
       id: id ?? this.id,
@@ -468,6 +504,17 @@ class ReadingItem {
       updatedAt: updatedAt ?? this.updatedAt,
       deletedAt: deletedAt ?? this.deletedAt,
       deviceId: deviceId ?? this.deviceId,
+      codeType: classification?.codeType ?? codeType ?? this.codeType,
+      classificationStatus: classification?.classificationStatus ??
+          classificationStatus ??
+          this.classificationStatus,
+      classificationCandidates: classification?.classificationCandidates ??
+          classificationCandidates ??
+          this.classificationCandidates,
+      detailsPayload:
+          classification?.detailsPayload ?? detailsPayload ?? this.detailsPayload,
+      schemaVersion:
+          classification?.schemaVersion ?? schemaVersion ?? this.schemaVersion,
     );
   }
 
@@ -479,6 +526,13 @@ class ReadingItem {
       'updated_at': updatedAt.toIso8601String(),
       'deleted_at': deletedAt?.toIso8601String(),
       'device_id': deviceId,
+      ...ReadingClassification.stored(
+        codeType: codeType,
+        classificationStatus: classificationStatus,
+        classificationCandidates: classificationCandidates,
+        detailsPayload: detailsPayload,
+        schemaVersion: schemaVersion,
+      ).toJson(),
     };
   }
 
@@ -494,6 +548,7 @@ class ReadingItem {
           ? null
           : DateTime.parse(json['deleted_at'] as String).toUtc(),
       deviceId: json['device_id'] as String? ?? 'unknown-device',
+      classification: ReadingClassification.fromJson(json),
     );
   }
 
@@ -507,6 +562,7 @@ class ReadingItem {
           ? null
           : DateTime.parse(json['deleted_at'] as String).toUtc(),
       deviceId: json['device_id'] as String? ?? 'unknown-device',
+      classification: ReadingClassification.fromJson(json),
     );
   }
 }

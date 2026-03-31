@@ -1,5 +1,6 @@
 import 'package:barcode_app/app/app.dart';
 import 'package:barcode_app/features/readings/data/readings_repository.dart';
+import 'package:barcode_app/features/readings/domain/reading_classification.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -27,6 +28,7 @@ class _SmokeReadingsRepository implements ReadingsRepository {
   Future<ReadingItem> addCode({
     required String code,
     required String source,
+    ReadingClassification? classification,
   }) async {
     throw UnimplementedError();
   }
@@ -35,6 +37,7 @@ class _SmokeReadingsRepository implements ReadingsRepository {
   Future<List<ReadingItem>> addCodesBatch({
     required List<String> codes,
     required String source,
+    List<ReadingClassification>? classifications,
   }) async {
     throw UnimplementedError();
   }
@@ -72,6 +75,7 @@ class _SmokeReadingsRepository implements ReadingsRepository {
   Future<void> updateCode({
     required String id,
     required String newCode,
+    ReadingClassification? classification,
   }) async {}
 
   @override

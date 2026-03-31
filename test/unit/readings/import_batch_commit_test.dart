@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:barcode_app/features/readings/application/readings_controller.dart';
 import 'package:barcode_app/features/readings/data/readings_repository.dart';
+import 'package:barcode_app/features/readings/domain/reading_classification.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -9,7 +10,7 @@ void main() {
   test('importa somente novos ou todo o lote conforme a escolha', () async {
     final repository = _FakeReadingsRepository(
       seeded: [
-        _item(id: 'a', code: '111', source: 'manual'),
+        _item(id: 'a', code: '11111111', source: 'manual'),
       ],
     );
 
@@ -24,7 +25,7 @@ void main() {
     final notifier = container.read(readingsControllerProvider.notifier);
 
     final importOnlyNew = await notifier.importCodes(
-      ['111', '222', '222', '333'],
+      ['11111111', '22222222', '22222222', '33333333'],
       includeDuplicates: false,
     );
 
@@ -32,7 +33,7 @@ void main() {
     expect(importOnlyNew.skippedDuplicates, 2);
 
     final importAll = await notifier.importCodes(
-      ['444', '444'],
+      ['44444444', '44444444'],
       includeDuplicates: true,
     );
 
@@ -40,7 +41,16 @@ void main() {
     expect(importAll.skippedDuplicates, 0);
 
     final items = await container.read(readingsControllerProvider.future);
-    expect(items.map((item) => item.code), ['444', '444', '333', '222', '111']);
+    expect(
+      items.map((item) => item.code),
+      ['44444444', '44444444', '33333333', '22222222', '11111111'],
+    );
+    expect(
+      items
+          .where((item) => item.code != '11111111')
+          .every((item) => item.codeType == 'paper_bobbin'),
+      isTrue,
+    );
   });
 }
 
@@ -91,6 +101,7 @@ class _FakeReadingsRepository implements ReadingsRepository {
   Future<ReadingItem> addCode({
     required String code,
     required String source,
+    ReadingClassification? classification,
   }) async {
     final created = ReadingItem(
       id: 'generated-${_items.length + 1}',
@@ -99,6 +110,7 @@ class _FakeReadingsRepository implements ReadingsRepository {
       updatedAt: DateTime(2026, 3, 25, 10),
       deletedAt: null,
       deviceId: 'device-a',
+      classification: classification,
     );
     _items.add(created);
     _emit();
@@ -109,9 +121,11 @@ class _FakeReadingsRepository implements ReadingsRepository {
   Future<List<ReadingItem>> addCodesBatch({
     required List<String> codes,
     required String source,
+    List<ReadingClassification>? classifications,
   }) async {
     final created = <ReadingItem>[];
-    for (final code in codes) {
+    for (var index = 0; index < codes.length; index++) {
+      final code = codes[index];
       final item = ReadingItem(
         id: 'generated-${_items.length + 1}',
         code: code,
@@ -119,6 +133,8 @@ class _FakeReadingsRepository implements ReadingsRepository {
         updatedAt: DateTime(2026, 3, 25, 10, 0, _items.length + 1),
         deletedAt: null,
         deviceId: 'device-a',
+        classification:
+            index < (classifications?.length ?? 0) ? classifications![index] : null,
       );
       _items.add(item);
       created.add(item);
@@ -131,11 +147,13 @@ class _FakeReadingsRepository implements ReadingsRepository {
   Future<void> updateCode({
     required String id,
     required String newCode,
+    ReadingClassification? classification,
   }) async {
     final index = _items.indexWhere((item) => item.id == id);
     _items[index] = _items[index].copyWith(
       code: newCode,
       updatedAt: DateTime(2026, 3, 25, 11),
+      classification: classification,
     );
     _emit();
   }

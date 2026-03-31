@@ -1,4 +1,5 @@
 import 'package:barcode_app/features/readings/data/readings_repository.dart';
+import 'package:barcode_app/features/readings/domain/reading_classification.dart';
 import 'package:barcode_app/features/readings/presentation/readings_page.dart';
 import 'package:barcode_app/features/sync/application/sync_controller.dart';
 import 'package:flutter/material.dart';
@@ -49,6 +50,7 @@ class _IntegrationReadingsRepository implements ReadingsRepository {
   Future<ReadingItem> addCode({
     required String code,
     required String source,
+    ReadingClassification? classification,
   }) async {
     throw UnimplementedError();
   }
@@ -57,6 +59,7 @@ class _IntegrationReadingsRepository implements ReadingsRepository {
   Future<List<ReadingItem>> addCodesBatch({
     required List<String> codes,
     required String source,
+    List<ReadingClassification>? classifications,
   }) async {
     throw UnimplementedError();
   }
@@ -94,6 +97,7 @@ class _IntegrationReadingsRepository implements ReadingsRepository {
   Future<void> updateCode({
     required String id,
     required String newCode,
+    ReadingClassification? classification,
   }) async {}
 
   @override
