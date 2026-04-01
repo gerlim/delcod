@@ -141,6 +141,59 @@ void main() {
     expect(find.text('Acoes da lista'), findsOneWidget);
   });
 
+  testWidgets('no mobile o topo sobe junto quando a pagina rola',
+      (tester) async {
+    final repository = _StaticReadingsRepository(
+      items: List.generate(
+        18,
+        (index) => ReadingItem(
+          id: 'item-$index',
+          code: '78912$index',
+          source: 'manual',
+          updatedAt: DateTime.parse('2026-03-25T22:40:00Z')
+              .add(Duration(minutes: index)),
+          deletedAt: null,
+          deviceId: 'android',
+          metadataPayload: {
+            'warehouse_code': index.isEven ? '05' : 'GLR',
+            'warehouse_company':
+                index.isEven ? 'Bora Embalagens' : 'ABN Embalagens',
+            'bobbin_lot': '78912$index',
+          },
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          readingsRepositoryProvider.overrideWithValue(repository),
+          syncPollingEnabledProvider.overrideWithValue(false),
+          platformCapabilitiesProvider.overrideWithValue(
+            const PlatformCapabilities(
+              supportsCameraScanning: true,
+              supportsManualEntry: true,
+            ),
+          ),
+        ],
+        child: const MaterialApp(
+          home: MediaQuery(
+            data: MediaQueryData(size: Size(390, 844)),
+            child: ReadingsPage(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('DelCod'), findsOneWidget);
+
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, -500));
+    await tester.pumpAndSettle();
+
+    expect(find.text('DelCod'), findsNothing);
+  });
+
 }
 
 class _StaticReadingsRepository implements ReadingsRepository {

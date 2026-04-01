@@ -45,6 +45,8 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
     final screenWidth = MediaQuery.sizeOf(context).width;
     final compact = screenWidth < 760;
     final desktop = screenWidth >= 1040;
+    final useUnifiedMobileScroll =
+        capabilities.supportsCameraScanning && !desktop;
     final contentWidth = compact ? double.infinity : 1260.0;
 
     return Scaffold(
@@ -65,6 +67,102 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
                     : constraints.maxWidth < contentWidth
                         ? constraints.maxWidth
                         : contentWidth;
+
+                if (useUnifiedMobileScroll) {
+                  return Align(
+                    alignment: Alignment.topCenter,
+                    child: SizedBox(
+                      width: resolvedWidth,
+                      child: ListView(
+                        padding: EdgeInsets.fromLTRB(
+                          compact ? 16 : 24,
+                          compact ? 16 : 24,
+                          compact ? 16 : 24,
+                          compact ? 16 : 24,
+                        ),
+                        children: [
+                          _PageHeader(
+                            totalCount: items.length,
+                            selectedCount: selectedItems.length,
+                            pendingCount: items
+                                .map(BobbinInventoryRecord.fromItem)
+                                .where((record) => !record.hasWarehouseAllocated)
+                                .length,
+                          ),
+                          const SizedBox(height: 16),
+                          const SyncStatusBanner(),
+                          const SizedBox(height: 20),
+                          _buildCaptureCard(
+                            context: context,
+                            capabilities: capabilities,
+                          ),
+                          const SizedBox(height: 16),
+                          _SummarySection(
+                            totalCount: items.length,
+                            selectedCount: selectedItems.length,
+                            pendingCount: items
+                                .map(BobbinInventoryRecord.fromItem)
+                                .where((record) => !record.hasWarehouseAllocated)
+                                .length,
+                          ),
+                          const SizedBox(height: 16),
+                          _ActionsSection(
+                            hasItems: items.isNotEmpty,
+                            allSelected: allSelected,
+                            hasSelection: selectedItems.isNotEmpty,
+                            onToggleSelectAll: () {
+                              setState(() {
+                                if (allSelected) {
+                                  _selectedIds.clear();
+                                } else {
+                                  _selectedIds
+                                    ..clear()
+                                    ..addAll(items.map((item) => item.id));
+                                }
+                              });
+                            },
+                            onImportFile: () => _importFile(
+                              existingCodes:
+                                  items.map((item) => item.code).toSet(),
+                            ),
+                            onAllocateWarehouse: selectedItems.isEmpty
+                                ? null
+                                : () => _allocateWarehouseForSelection(
+                                      selectedItems,
+                                    ),
+                            onExportXlsx: exportItems.isEmpty
+                                ? null
+                                : () => _exportXlsx(exportItems),
+                            onExportPdf: exportItems.isEmpty
+                                ? null
+                                : () => _exportPdf(exportItems),
+                            onClearAll: items.isEmpty
+                                ? null
+                                : () => _confirmClearAll(context),
+                          ),
+                          const SizedBox(height: 16),
+                          _ReadingsSection(
+                            items: items,
+                            selectedIds: _selectedIds,
+                            selectedCount: selectedItems.length,
+                            fillAvailableHeight: false,
+                            onSelectionChanged: (itemId, value) {
+                              setState(() {
+                                if (value) {
+                                  _selectedIds.add(itemId);
+                                } else {
+                                  _selectedIds.remove(itemId);
+                                }
+                              });
+                            },
+                            onEdit: _showEditDialog,
+                            onDelete: _deleteItem,
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }
 
                 return Align(
                   alignment: Alignment.topCenter,
