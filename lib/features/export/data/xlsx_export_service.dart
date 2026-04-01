@@ -13,6 +13,9 @@ class XlsxExportService {
 
   Uint8List buildFile(ExportReadingsPayload payload) {
     final workbook = Excel.createExcel();
+    if (workbook.tables.containsKey('Sheet1')) {
+      workbook.rename('Sheet1', 'Leituras');
+    }
     final sheet = workbook['Leituras'];
 
     sheet.appendRow([

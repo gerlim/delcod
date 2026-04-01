@@ -64,6 +64,7 @@ class ReadingsController extends AsyncNotifier<List<ReadingItem>> {
     required String newCode,
     bool forceDuplicate = false,
     String? warehouseCode,
+    bool preserveExistingWarehouseIfUnset = true,
   }) async {
     final normalized = newCode.trim();
     if (normalized.isEmpty) {
@@ -81,6 +82,13 @@ class ReadingsController extends AsyncNotifier<List<ReadingItem>> {
       return DuplicateDecision.warning;
     }
 
+    final resolvedWarehouseCode = warehouseCode ??
+        (preserveExistingWarehouseIfUnset
+            ? (current == null
+                ? null
+                : BobbinInventoryRecord.fromItem(current).warehouseCode)
+            : null);
+
     final classification = _classify(normalized);
     await repository.updateCode(
       id: id,
@@ -88,10 +96,7 @@ class ReadingsController extends AsyncNotifier<List<ReadingItem>> {
       classification: classification,
       metadataPayload: BobbinInventoryRecord.buildMetadata(
         lot: normalized,
-        warehouseCode: warehouseCode ??
-            (current == null
-                ? null
-                : BobbinInventoryRecord.fromItem(current).warehouseCode),
+        warehouseCode: resolvedWarehouseCode,
         seed: current?.metadataPayload,
       ),
     );

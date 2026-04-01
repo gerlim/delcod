@@ -30,6 +30,8 @@ void main() {
     final sheet = workbook.tables['Leituras'];
 
     expect(sheet, isNotNull);
+    expect(workbook.tables.containsKey('Sheet1'), isFalse);
+    expect(workbook.tables.keys, equals(['Leituras']));
     expect(
       sheet!.rows.first.map((cell) => cell?.value?.toString()).toList(),
       ['Lote de Bobina', 'Armazem', 'Empresa', 'Status'],

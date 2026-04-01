@@ -433,6 +433,21 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
                       });
                     },
                   ),
+                  if (selectedWarehouseCode != null) ...[
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton.icon(
+                        onPressed: () {
+                          setState(() {
+                            selectedWarehouseCode = null;
+                          });
+                        },
+                        icon: const Icon(Icons.clear_outlined),
+                        label: const Text('Remover armazem'),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 10),
                   _WarehousePreviewText(
                     warehouseCode: selectedWarehouseCode,
@@ -470,6 +485,7 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
               id: item.id,
               newCode: result.lot,
               warehouseCode: result.warehouseCode,
+              preserveExistingWarehouseIfUnset: false,
             );
 
     if (decision == DuplicateDecision.warning) {
@@ -480,6 +496,7 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
               newCode: result.lot,
               forceDuplicate: true,
               warehouseCode: result.warehouseCode,
+              preserveExistingWarehouseIfUnset: false,
             );
         if (mounted) {
           _showFeedback('Lote de bobina atualizado');
@@ -1057,7 +1074,7 @@ class _ActionsSection extends StatelessWidget {
           const SizedBox(height: 12),
           _ActionButton(
             icon: Icons.table_view_outlined,
-            label: 'Exportar XLSX',
+            label: 'Exportar Excel',
             onPressed: onExportXlsx,
           ),
           const SizedBox(height: 12),

@@ -36,7 +36,7 @@ void main() {
     expect(find.text('Sincronizado'), findsOneWidget);
     expect(find.text('Importar arquivo'), findsOneWidget);
     expect(find.text('Alocar armazem'), findsOneWidget);
-    expect(find.text('Exportar XLSX'), findsOneWidget);
+    expect(find.text('Exportar Excel'), findsOneWidget);
     expect(find.text('Exportar PDF'), findsOneWidget);
   });
 
@@ -140,6 +140,7 @@ void main() {
     expect(find.text('Resumo rapido', skipOffstage: false), findsOneWidget);
     expect(find.text('Acoes da lista'), findsOneWidget);
   });
+
 }
 
 class _StaticReadingsRepository implements ReadingsRepository {

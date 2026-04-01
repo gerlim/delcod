@@ -240,6 +240,53 @@ void main() {
       isTrue,
     );
   });
+
+  test('permite remover o armazem de um lote e volta-lo para pendente', () async {
+    final repository = _FakeReadingsRepository(
+      seeded: [
+        ReadingItem(
+          id: 'allocated',
+          code: '001125816205936325',
+          source: 'camera',
+          updatedAt: DateTime(2026, 3, 25, 10),
+          deletedAt: null,
+          deviceId: 'device-a',
+          metadataPayload: const {
+            'bobbin_lot': '001125816205936325',
+            'warehouse_code': 'GLR',
+            'warehouse_company': 'ABN Embalagens',
+          },
+        ),
+      ],
+    );
+
+    final container = ProviderContainer(
+      overrides: [
+        readingsRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await container.read(readingsControllerProvider.future);
+
+    await container.read(readingsControllerProvider.notifier).updateCode(
+          id: 'allocated',
+          newCode: '001125816205936325',
+          warehouseCode: null,
+          preserveExistingWarehouseIfUnset: false,
+        );
+
+    final items = await container.read(readingsControllerProvider.future);
+    final record = BobbinInventoryRecord.fromItem(items.single);
+
+    expect(record.warehouseCode, isNull);
+    expect(record.companyName, isNull);
+    expect(record.statusLabel, 'Sem armazem alocado');
+    expect(
+      items.single.metadataPayload,
+      const {'bobbin_lot': '001125816205936325'},
+    );
+  });
 }
 
 ReadingItem _item({
