@@ -36,9 +36,17 @@ class ImportReadingsDialog extends StatefulWidget {
 class _ImportReadingsDialogState extends State<ImportReadingsDialog> {
   static const _service = ReadingImportService();
 
-  late bool _hasHeader = widget.table.suggestedHasHeader;
-  int _selectedColumnIndex = 0;
+  late bool _hasHeader;
+  late int _selectedColumnIndex;
   int? _selectedWarehouseColumnIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    _hasHeader = widget.table.suggestedHasHeader;
+    _selectedColumnIndex = widget.table.suggestedLotColumnIndex ?? 0;
+    _selectedWarehouseColumnIndex = widget.table.suggestedWarehouseColumnIndex;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -86,6 +94,14 @@ class _ImportReadingsDialogState extends State<ImportReadingsDialog> {
                 onChanged: (value) {
                   setState(() {
                     _hasHeader = value;
+                    if (value) {
+                      _selectedColumnIndex =
+                          widget.table.suggestedLotColumnIndex ?? _selectedColumnIndex;
+                      _selectedWarehouseColumnIndex =
+                          widget.table.suggestedWarehouseColumnIndex;
+                    } else {
+                      _selectedWarehouseColumnIndex = null;
+                    }
                   });
                 },
               ),

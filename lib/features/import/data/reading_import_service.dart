@@ -226,6 +226,23 @@ class ImportedTable {
   final int columnCount;
   final bool suggestedHasHeader;
 
+  int? get suggestedLotColumnIndex => _findSuggestedColumnIndex(
+        aliases: const [
+          'lote bobina',
+          'lote de bobina',
+          'lotebobina',
+          'bobbin lot',
+        ],
+      );
+
+  int? get suggestedWarehouseColumnIndex => _findSuggestedColumnIndex(
+        aliases: const [
+          'armazem',
+          'armazém',
+          'warehouse',
+        ],
+      );
+
   List<List<String>> previewRows({
     required bool hasHeader,
     int limit = 5,
@@ -253,6 +270,27 @@ class ImportedTable {
     }
 
     return 'Coluna ${excelColumnLabel(columnIndex)}';
+  }
+
+  int? _findSuggestedColumnIndex({
+    required List<String> aliases,
+  }) {
+    if (!suggestedHasHeader || rows.isEmpty) {
+      return null;
+    }
+
+    final header = rows.first;
+    for (var index = 0; index < header.length; index++) {
+      final normalizedHeader = _normalizeHeaderLabel(header[index]);
+      if (normalizedHeader.isEmpty) {
+        continue;
+      }
+      if (aliases.any((alias) => _normalizeHeaderLabel(alias) == normalizedHeader)) {
+        return index;
+      }
+    }
+
+    return null;
   }
 
   List<String> extractCodes({
@@ -353,6 +391,43 @@ class ReadingImportAnalysis {
 
 String _normalizeCode(String value) {
   return value.replaceAll(RegExp(r'\s+'), '').trim();
+}
+
+String _normalizeHeaderLabel(String value) {
+  final lowercase = value.trim().toLowerCase();
+  const accentMap = {
+    'á': 'a',
+    'à': 'a',
+    'â': 'a',
+    'ã': 'a',
+    'ä': 'a',
+    'é': 'e',
+    'è': 'e',
+    'ê': 'e',
+    'ë': 'e',
+    'í': 'i',
+    'ì': 'i',
+    'î': 'i',
+    'ï': 'i',
+    'ó': 'o',
+    'ò': 'o',
+    'ô': 'o',
+    'õ': 'o',
+    'ö': 'o',
+    'ú': 'u',
+    'ù': 'u',
+    'û': 'u',
+    'ü': 'u',
+    'ç': 'c',
+  };
+
+  final buffer = StringBuffer();
+  for (final rune in lowercase.runes) {
+    final char = String.fromCharCode(rune);
+    buffer.write(accentMap[char] ?? char);
+  }
+
+  return buffer.toString().replaceAll(RegExp(r'\s+'), ' ').trim();
 }
 
 class ImportedReadingEntry {

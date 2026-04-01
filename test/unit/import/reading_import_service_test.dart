@@ -104,5 +104,40 @@ void main() {
         'weight': '14,7',
       });
     });
+
+    test('sugere automaticamente as colunas de lote de bobina e armazem pelo cabecalho', () {
+      const service = ReadingImportService();
+      final bytes = Uint8List.fromList(
+        utf8.encode(
+          'Status;Armazém;Lote Bobina;Observacao\nLI;05;001126023205936309;Ok\n',
+        ),
+      );
+
+      final table = service.parseFile(
+        filename: 'saldos.csv',
+        bytes: bytes,
+      );
+
+      expect(table.suggestedHasHeader, isTrue);
+      expect(table.suggestedLotColumnIndex, 2);
+      expect(table.suggestedWarehouseColumnIndex, 1);
+    });
+
+    test('reconhece variacoes sem acento e com espacos extras no cabecalho', () {
+      const service = ReadingImportService();
+      final bytes = Uint8List.fromList(
+        utf8.encode(
+          '  armazem ; lote de bobina ; status \nPPI;001125816205936325;LI\n',
+        ),
+      );
+
+      final table = service.parseFile(
+        filename: 'saldos.csv',
+        bytes: bytes,
+      );
+
+      expect(table.suggestedWarehouseColumnIndex, 0);
+      expect(table.suggestedLotColumnIndex, 1);
+    });
   });
 }
