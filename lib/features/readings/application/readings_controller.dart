@@ -6,6 +6,7 @@ import 'package:barcode_app/features/readings/domain/import_commit_result.dart';
 import 'package:barcode_app/features/readings/domain/bobbin_inventory_record.dart';
 import 'package:barcode_app/features/readings/domain/reading_classification.dart';
 import 'package:barcode_app/features/readings/domain/reading_type_classifier.dart';
+import 'package:barcode_app/features/readings/domain/warehouse_allocation_result.dart';
 import 'package:barcode_app/features/import/data/reading_import_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -207,6 +208,63 @@ class ReadingsController extends AsyncNotifier<List<ReadingItem>> {
       );
     }
     state = AsyncData(await repository.fetchActive());
+  }
+
+  Future<WarehouseAllocationResult> allocateWarehouse({
+    required List<String> itemIds,
+    required String warehouseCode,
+    required bool overwriteExisting,
+  }) async {
+    final normalizedWarehouseCode =
+        BobbinInventoryRecord.normalizeWarehouseCode(warehouseCode);
+    if (normalizedWarehouseCode == null || itemIds.isEmpty) {
+      return const WarehouseAllocationResult(
+        updatedCount: 0,
+        overwrittenCount: 0,
+      );
+    }
+
+    final repository = ref.read(readingsRepositoryProvider);
+    final activeItems = await repository.fetchActive();
+    final selectedItems = activeItems
+        .where((item) => itemIds.contains(item.id))
+        .toList(growable: false);
+
+    var updatedCount = 0;
+    var overwrittenCount = 0;
+
+    for (final item in selectedItems) {
+      final inventoryRecord = BobbinInventoryRecord.fromItem(item);
+      final currentWarehouseCode = inventoryRecord.warehouseCode;
+
+      if (currentWarehouseCode == normalizedWarehouseCode) {
+        continue;
+      }
+      if (inventoryRecord.hasWarehouseAllocated && !overwriteExisting) {
+        continue;
+      }
+
+      await repository.updateCode(
+        id: item.id,
+        newCode: item.code,
+        classification: _classify(item.code),
+        metadataPayload: BobbinInventoryRecord.buildMetadata(
+          lot: inventoryRecord.lot,
+          warehouseCode: normalizedWarehouseCode,
+          seed: item.metadataPayload,
+        ),
+      );
+      updatedCount += 1;
+      if (inventoryRecord.hasWarehouseAllocated) {
+        overwrittenCount += 1;
+      }
+    }
+
+    state = AsyncData(await repository.fetchActive());
+    return WarehouseAllocationResult(
+      updatedCount: updatedCount,
+      overwrittenCount: overwrittenCount,
+    );
   }
 
   ReadingClassification _classify(String code) {

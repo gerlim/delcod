@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:barcode_app/features/readings/application/readings_controller.dart';
 import 'package:barcode_app/features/readings/data/readings_repository.dart';
+import 'package:barcode_app/features/readings/domain/bobbin_inventory_record.dart';
 import 'package:barcode_app/features/readings/domain/duplicate_decision.dart';
 import 'package:barcode_app/features/readings/domain/reading_classification.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -122,6 +123,122 @@ void main() {
     expect(items.single.metadataPayload, const {
       'batch': 'L-01',
     });
+  });
+
+  test('aloca armazem em lote apenas para leituras pendentes quando nao reescreve', () async {
+    final repository = _FakeReadingsRepository(
+      seeded: [
+        ReadingItem(
+          id: 'pending',
+          code: '001126023205936309',
+          source: 'camera',
+          updatedAt: DateTime(2026, 3, 25, 10),
+          deletedAt: null,
+          deviceId: 'device-a',
+        ),
+        ReadingItem(
+          id: 'allocated',
+          code: '001125816205936325',
+          source: 'camera',
+          updatedAt: DateTime(2026, 3, 25, 10),
+          deletedAt: null,
+          deviceId: 'device-a',
+          metadataPayload: const {
+            'bobbin_lot': '001125816205936325',
+            'warehouse_code': 'GLR',
+            'warehouse_company': 'ABN Embalagens',
+          },
+        ),
+      ],
+    );
+
+    final container = ProviderContainer(
+      overrides: [
+        readingsRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await container.read(readingsControllerProvider.future);
+
+    final result = await container
+        .read(readingsControllerProvider.notifier)
+        .allocateWarehouse(
+          itemIds: const ['pending', 'allocated'],
+          warehouseCode: '05',
+          overwriteExisting: false,
+        );
+
+    final items = await container.read(readingsControllerProvider.future);
+    final pendingItem = items.firstWhere((item) => item.id == 'pending');
+    final allocatedItem = items.firstWhere((item) => item.id == 'allocated');
+
+    expect(result.updatedCount, 1);
+    expect(result.overwrittenCount, 0);
+    expect(
+      BobbinInventoryRecord.fromItem(pendingItem).companyName,
+      'Bora Embalagens',
+    );
+    expect(
+      BobbinInventoryRecord.fromItem(allocatedItem).warehouseCode,
+      'GLR',
+    );
+  });
+
+  test('aloca armazem em lote reescrevendo leituras ja alocadas quando confirmado', () async {
+    final repository = _FakeReadingsRepository(
+      seeded: [
+        ReadingItem(
+          id: 'pending',
+          code: '001126023205936309',
+          source: 'camera',
+          updatedAt: DateTime(2026, 3, 25, 10),
+          deletedAt: null,
+          deviceId: 'device-a',
+        ),
+        ReadingItem(
+          id: 'allocated',
+          code: '001125816205936325',
+          source: 'camera',
+          updatedAt: DateTime(2026, 3, 25, 10),
+          deletedAt: null,
+          deviceId: 'device-a',
+          metadataPayload: const {
+            'bobbin_lot': '001125816205936325',
+            'warehouse_code': 'GLR',
+            'warehouse_company': 'ABN Embalagens',
+          },
+        ),
+      ],
+    );
+
+    final container = ProviderContainer(
+      overrides: [
+        readingsRepositoryProvider.overrideWithValue(repository),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    await container.read(readingsControllerProvider.future);
+
+    final result = await container
+        .read(readingsControllerProvider.notifier)
+        .allocateWarehouse(
+          itemIds: const ['pending', 'allocated'],
+          warehouseCode: '05',
+          overwriteExisting: true,
+        );
+
+    final items = await container.read(readingsControllerProvider.future);
+
+    expect(result.updatedCount, 2);
+    expect(result.overwrittenCount, 1);
+    expect(
+      items
+          .map(BobbinInventoryRecord.fromItem)
+          .every((record) => record.warehouseCode == '05'),
+      isTrue,
+    );
   });
 }
 

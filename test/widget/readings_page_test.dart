@@ -35,6 +35,7 @@ void main() {
     expect(find.text('Bobinas ativas'), findsOneWidget);
     expect(find.text('Sincronizado'), findsOneWidget);
     expect(find.text('Importar arquivo'), findsOneWidget);
+    expect(find.text('Alocar armazem'), findsOneWidget);
     expect(find.text('Exportar XLSX'), findsOneWidget);
     expect(find.text('Exportar PDF'), findsOneWidget);
   });

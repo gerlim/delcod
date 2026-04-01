@@ -143,6 +143,12 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
                                                       .map((item) => item.code)
                                                       .toSet(),
                                                 ),
+                                                onAllocateWarehouse:
+                                                    selectedItems.isEmpty
+                                                        ? null
+                                                        : () => _allocateWarehouseForSelection(
+                                                              selectedItems,
+                                                            ),
                                                 onExportXlsx:
                                                     exportItems.isEmpty
                                                         ? null
@@ -225,6 +231,12 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
                                               .map((item) => item.code)
                                               .toSet(),
                                         ),
+                                        onAllocateWarehouse:
+                                            selectedItems.isEmpty
+                                                ? null
+                                                : () => _allocateWarehouseForSelection(
+                                                      selectedItems,
+                                                    ),
                                         onExportXlsx: exportItems.isEmpty
                                             ? null
                                             : () => _exportXlsx(exportItems),
@@ -663,6 +675,76 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
     );
   }
 
+  Future<void> _allocateWarehouseForSelection(
+    List<ReadingItem> selectedItems,
+  ) async {
+    final warehouseCode = await showDialog<String?>(
+      context: context,
+      builder: (context) => const _WarehouseAllocationDialog(),
+    );
+
+    if (!mounted || warehouseCode == null) {
+      return;
+    }
+
+    final normalizedWarehouseCode =
+        BobbinInventoryRecord.normalizeWarehouseCode(warehouseCode);
+    if (normalizedWarehouseCode == null) {
+      return;
+    }
+
+    final overwriteCandidates = selectedItems
+        .map(
+          (item) => _WarehouseOverwritePreview(
+            item: item,
+            current: BobbinInventoryRecord.fromItem(item),
+            nextWarehouseCode: normalizedWarehouseCode,
+          ),
+        )
+        .where((preview) => preview.shouldWarnAboutOverwrite)
+        .toList(growable: false);
+
+    var overwriteExisting = false;
+    if (overwriteCandidates.isNotEmpty) {
+      final overwriteDecision = await showDialog<_WarehouseOverwriteDecision>(
+        context: context,
+        builder: (context) => _WarehouseOverwriteDialog(
+          previews: overwriteCandidates,
+          nextWarehouseCode: normalizedWarehouseCode,
+        ),
+      );
+
+      if (!mounted || overwriteDecision == null) {
+        return;
+      }
+
+      overwriteExisting =
+          overwriteDecision == _WarehouseOverwriteDecision.overwriteSelected;
+    }
+
+    final result =
+        await ref.read(readingsControllerProvider.notifier).allocateWarehouse(
+              itemIds: selectedItems.map((item) => item.id).toList(growable: false),
+              warehouseCode: normalizedWarehouseCode,
+              overwriteExisting: overwriteExisting,
+            );
+
+    if (!mounted) {
+      return;
+    }
+
+    if (result.updatedCount == 0) {
+      _showFeedback('Nenhum lote precisou ser atualizado.');
+      return;
+    }
+
+    _showFeedback(
+      result.overwrittenCount > 0
+          ? '${result.updatedCount} lotes atualizados. ${result.overwrittenCount} reescritos.'
+          : '${result.updatedCount} lotes atualizados com armazem.',
+    );
+  }
+
   ExportReadingsPayload _buildExportPayload(List<ReadingItem> items) {
     return ExportReadingsPayload(
       title: widget.collectionTitle,
@@ -913,6 +995,7 @@ class _ActionsSection extends StatelessWidget {
     required this.hasSelection,
     required this.onToggleSelectAll,
     required this.onImportFile,
+    required this.onAllocateWarehouse,
     required this.onExportXlsx,
     required this.onExportPdf,
     required this.onClearAll,
@@ -923,6 +1006,7 @@ class _ActionsSection extends StatelessWidget {
   final bool hasSelection;
   final VoidCallback onToggleSelectAll;
   final VoidCallback onImportFile;
+  final VoidCallback? onAllocateWarehouse;
   final VoidCallback? onExportXlsx;
   final VoidCallback? onExportPdf;
   final VoidCallback? onClearAll;
@@ -963,6 +1047,12 @@ class _ActionsSection extends StatelessWidget {
                 : Icons.select_all_rounded,
             label: selectionLabel,
             onPressed: hasItems ? onToggleSelectAll : null,
+          ),
+          const SizedBox(height: 12),
+          _ActionButton(
+            icon: Icons.warehouse_outlined,
+            label: 'Alocar armazem',
+            onPressed: onAllocateWarehouse,
           ),
           const SizedBox(height: 12),
           _ActionButton(
@@ -1389,4 +1479,186 @@ class _EditReadingResult {
 
   final String lot;
   final String? warehouseCode;
+}
+
+class _WarehouseAllocationDialog extends StatefulWidget {
+  const _WarehouseAllocationDialog();
+
+  @override
+  State<_WarehouseAllocationDialog> createState() =>
+      _WarehouseAllocationDialogState();
+}
+
+class _WarehouseAllocationDialogState extends State<_WarehouseAllocationDialog> {
+  String? _selectedWarehouseCode;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Alocar armazem'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Escolha o armazem que sera aplicado aos lotes selecionados.',
+          ),
+          const SizedBox(height: 16),
+          _WarehouseAllocationField(
+            value: _selectedWarehouseCode,
+            onChanged: (value) {
+              setState(() {
+                _selectedWarehouseCode = value;
+              });
+            },
+          ),
+          const SizedBox(height: 10),
+          _WarehousePreviewText(
+            warehouseCode: _selectedWarehouseCode,
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton(
+          onPressed: _selectedWarehouseCode == null
+              ? null
+              : () => Navigator.of(context).pop(_selectedWarehouseCode),
+          child: const Text('Continuar'),
+        ),
+      ],
+    );
+  }
+}
+
+enum _WarehouseOverwriteDecision {
+  applyPendingOnly,
+  overwriteSelected,
+}
+
+class _WarehouseOverwriteDialog extends StatelessWidget {
+  const _WarehouseOverwriteDialog({
+    required this.previews,
+    required this.nextWarehouseCode,
+  });
+
+  final List<_WarehouseOverwritePreview> previews;
+  final String nextWarehouseCode;
+
+  @override
+  Widget build(BuildContext context) {
+    final nextCompanyName =
+        BobbinInventoryRecord.deriveCompanyName(nextWarehouseCode) ?? 'Pendente';
+
+    return AlertDialog(
+      title: const Text('Reescrever armazens existentes?'),
+      content: SizedBox(
+        width: 520,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${previews.length} lotes ja possuem armazem e seriam reescritos para $nextWarehouseCode · $nextCompanyName.',
+            ),
+            const SizedBox(height: 14),
+            Flexible(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: previews
+                      .map(
+                        (preview) => Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: AppColors.mist,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: AppColors.border),
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    preview.current.lot,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyLarge
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'Atual: ${preview.current.warehouseLabel} · ${preview.current.companyLabel}',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(
+                                          color: AppColors.steel,
+                                        ),
+                                  ),
+                                  Text(
+                                    'Novo: $nextWarehouseCode · $nextCompanyName',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(
+                                          color: AppColors.faultRed,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(growable: false),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        FilledButton.tonal(
+          onPressed: () => Navigator.of(context).pop(
+            _WarehouseOverwriteDecision.applyPendingOnly,
+          ),
+          child: const Text('Somente pendentes'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(
+            _WarehouseOverwriteDecision.overwriteSelected,
+          ),
+          child: const Text('Reescrever selecionados'),
+        ),
+      ],
+    );
+  }
+}
+
+class _WarehouseOverwritePreview {
+  const _WarehouseOverwritePreview({
+    required this.item,
+    required this.current,
+    required this.nextWarehouseCode,
+  });
+
+  final ReadingItem item;
+  final BobbinInventoryRecord current;
+  final String nextWarehouseCode;
+
+  bool get shouldWarnAboutOverwrite =>
+      current.hasWarehouseAllocated && current.warehouseCode != nextWarehouseCode;
 }
