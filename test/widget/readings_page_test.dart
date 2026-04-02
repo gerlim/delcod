@@ -194,6 +194,189 @@ void main() {
     expect(find.text('DelCod'), findsNothing);
   });
 
+  testWidgets('mantem a busca escondida ate clicar na lupa', (tester) async {
+    final repository = _StaticReadingsRepository(
+      items: [
+        _buildItem(
+          id: '1',
+          lot: '001126023205936309',
+          warehouseCode: '05',
+          companyName: 'Bora Embalagens',
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          readingsRepositoryProvider.overrideWithValue(repository),
+          syncPollingEnabledProvider.overrideWithValue(false),
+          platformCapabilitiesProvider.overrideWithValue(
+            const PlatformCapabilities(
+              supportsCameraScanning: false,
+              supportsManualEntry: true,
+            ),
+          ),
+        ],
+        child: const MaterialApp(
+          home: MediaQuery(
+            data: MediaQueryData(size: Size(1440, 1000)),
+            child: ReadingsPage(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.search_rounded), findsOneWidget);
+    expect(find.text('Pesquisar lote ou armazem'), findsNothing);
+
+    await tester.tap(find.byIcon(Icons.search_rounded));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Pesquisar lote ou armazem'), findsOneWidget);
+  });
+
+  testWidgets('filtra a lista por lote e por armazem', (tester) async {
+    final repository = _StaticReadingsRepository(
+      items: [
+        _buildItem(
+          id: '1',
+          lot: '001126023205936309',
+          warehouseCode: '05',
+          companyName: 'Bora Embalagens',
+        ),
+        _buildItem(
+          id: '2',
+          lot: 'PPI00004549',
+          warehouseCode: 'PPI',
+          companyName: 'Bora Embalagens',
+        ),
+        _buildItem(
+          id: '3',
+          lot: 'GLR998877',
+          warehouseCode: 'GLR',
+          companyName: 'ABN Embalagens',
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          readingsRepositoryProvider.overrideWithValue(repository),
+          syncPollingEnabledProvider.overrideWithValue(false),
+          platformCapabilitiesProvider.overrideWithValue(
+            const PlatformCapabilities(
+              supportsCameraScanning: false,
+              supportsManualEntry: true,
+            ),
+          ),
+        ],
+        child: const MaterialApp(
+          home: MediaQuery(
+            data: MediaQueryData(size: Size(1440, 1000)),
+            child: ReadingsPage(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.search_rounded));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Pesquisar lote ou armazem'),
+      '998877',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('GLR998877'), findsOneWidget);
+    expect(find.text('001126023205936309'), findsNothing);
+    expect(find.text('PPI00004549'), findsNothing);
+    expect(find.text('1 itens'), findsOneWidget);
+
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Pesquisar lote ou armazem'),
+      'ppi',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('PPI00004549'), findsOneWidget);
+    expect(find.text('GLR998877'), findsNothing);
+    expect(find.text('001126023205936309'), findsNothing);
+  });
+
+  testWidgets('mostra estado vazio quando a busca nao encontra itens',
+      (tester) async {
+    final repository = _StaticReadingsRepository(
+      items: [
+        _buildItem(
+          id: '1',
+          lot: '001126023205936309',
+          warehouseCode: '05',
+          companyName: 'Bora Embalagens',
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          readingsRepositoryProvider.overrideWithValue(repository),
+          syncPollingEnabledProvider.overrideWithValue(false),
+          platformCapabilitiesProvider.overrideWithValue(
+            const PlatformCapabilities(
+              supportsCameraScanning: false,
+              supportsManualEntry: true,
+            ),
+          ),
+        ],
+        child: const MaterialApp(
+          home: MediaQuery(
+            data: MediaQueryData(size: Size(1440, 1000)),
+            child: ReadingsPage(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.search_rounded));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Pesquisar lote ou armazem'),
+      'inexistente',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Nenhum lote encontrado para a pesquisa atual'), findsOneWidget);
+  });
+
+}
+
+ReadingItem _buildItem({
+  required String id,
+  required String lot,
+  required String warehouseCode,
+  required String companyName,
+  String source = 'manual',
+}) {
+  return ReadingItem(
+    id: id,
+    code: lot,
+    source: source,
+    updatedAt: DateTime.parse('2026-03-25T22:40:00Z'),
+    deletedAt: null,
+    deviceId: 'test-device',
+    metadataPayload: {
+      'warehouse_code': warehouseCode,
+      'warehouse_company': companyName,
+      'bobbin_lot': lot,
+    },
+  );
 }
 
 class _StaticReadingsRepository implements ReadingsRepository {

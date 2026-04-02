@@ -36,7 +36,18 @@ class ReadingsPage extends ConsumerStatefulWidget {
 
 class _ReadingsPageState extends ConsumerState<ReadingsPage> {
   final Set<String> _selectedIds = <String>{};
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
   String? _selectedWarehouseCode;
+  bool _isSearchOpen = false;
+  String _searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -53,12 +64,15 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
       body: SafeArea(
         child: readings.when(
           data: (items) {
-            final selectedItems = items
+            final visibleItems = _filterItems(items);
+            final selectedItems = visibleItems
                 .where((item) => _selectedIds.contains(item.id))
                 .toList(growable: false);
-            final exportItems = selectedItems.isEmpty ? items : selectedItems;
+            final exportItems =
+                selectedItems.isEmpty ? visibleItems : selectedItems;
             final allSelected =
-                items.isNotEmpty && selectedItems.length == items.length;
+                visibleItems.isNotEmpty &&
+                selectedItems.length == visibleItems.length;
 
             return LayoutBuilder(
               builder: (context, constraints) {
@@ -113,11 +127,15 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
                             onToggleSelectAll: () {
                               setState(() {
                                 if (allSelected) {
-                                  _selectedIds.clear();
+                                  _selectedIds.removeWhere(
+                                    (id) => visibleItems.any(
+                                      (item) => item.id == id,
+                                    ),
+                                  );
                                 } else {
-                                  _selectedIds
-                                    ..clear()
-                                    ..addAll(items.map((item) => item.id));
+                                  _selectedIds.addAll(
+                                    visibleItems.map((item) => item.id),
+                                  );
                                 }
                               });
                             },
@@ -142,9 +160,18 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
                           ),
                           const SizedBox(height: 16),
                           _ReadingsSection(
-                            items: items,
+                            items: visibleItems,
                             selectedIds: _selectedIds,
                             selectedCount: selectedItems.length,
+                            totalCount: items.length,
+                            isSearchOpen: _isSearchOpen,
+                            searchQuery: _searchQuery,
+                            onOpenSearch: _openSearch,
+                            onCloseSearch: () => _closeSearch(items),
+                            onSearchChanged: (value) =>
+                                _updateSearchQuery(value, items),
+                            searchController: _searchController,
+                            searchFocusNode: _searchFocusNode,
                             fillAvailableHeight: false,
                             onSelectionChanged: (itemId, value) {
                               setState(() {
@@ -224,15 +251,17 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
                                                 onToggleSelectAll: () {
                                                   setState(() {
                                                     if (allSelected) {
-                                                      _selectedIds.clear();
+                                                      _selectedIds.removeWhere(
+                                                        (id) => visibleItems.any(
+                                                          (item) => item.id == id,
+                                                        ),
+                                                      );
                                                     } else {
-                                                      _selectedIds
-                                                        ..clear()
-                                                        ..addAll(
-                                                          items.map(
-                                                            (item) => item.id,
-                                                          ),
-                                                        );
+                                                      _selectedIds.addAll(
+                                                        visibleItems.map(
+                                                          (item) => item.id,
+                                                        ),
+                                                      );
                                                     }
                                                   });
                                                 },
@@ -271,9 +300,19 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
                                       const SizedBox(width: 20),
                                       Expanded(
                                         child: _ReadingsSection(
-                                          items: items,
+                                          items: visibleItems,
                                           selectedIds: _selectedIds,
                                           selectedCount: selectedItems.length,
+                                          totalCount: items.length,
+                                          isSearchOpen: _isSearchOpen,
+                                          searchQuery: _searchQuery,
+                                          onOpenSearch: _openSearch,
+                                          onCloseSearch: () =>
+                                              _closeSearch(items),
+                                          onSearchChanged: (value) =>
+                                              _updateSearchQuery(value, items),
+                                          searchController: _searchController,
+                                          searchFocusNode: _searchFocusNode,
                                           fillAvailableHeight: true,
                                           onSelectionChanged: (itemId, value) {
                                             setState(() {
@@ -314,13 +353,17 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
                                         onToggleSelectAll: () {
                                           setState(() {
                                             if (allSelected) {
-                                              _selectedIds.clear();
+                                              _selectedIds.removeWhere(
+                                                (id) => visibleItems.any(
+                                                  (item) => item.id == id,
+                                                ),
+                                              );
                                             } else {
-                                              _selectedIds
-                                                ..clear()
-                                                ..addAll(
-                                                  items.map((item) => item.id),
-                                                );
+                                              _selectedIds.addAll(
+                                                visibleItems.map(
+                                                  (item) => item.id,
+                                                ),
+                                              );
                                             }
                                           });
                                         },
@@ -347,9 +390,18 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
                                       ),
                                       const SizedBox(height: 16),
                                       _ReadingsSection(
-                                        items: items,
+                                        items: visibleItems,
                                         selectedIds: _selectedIds,
                                         selectedCount: selectedItems.length,
+                                        totalCount: items.length,
+                                        isSearchOpen: _isSearchOpen,
+                                        searchQuery: _searchQuery,
+                                        onOpenSearch: _openSearch,
+                                        onCloseSearch: () => _closeSearch(items),
+                                        onSearchChanged: (value) =>
+                                            _updateSearchQuery(value, items),
+                                        searchController: _searchController,
+                                        searchFocusNode: _searchFocusNode,
                                         fillAvailableHeight: false,
                                         onSelectionChanged: (itemId, value) {
                                           setState(() {
@@ -455,6 +507,64 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
         ],
       ),
     );
+  }
+
+  void _openSearch() {
+    setState(() {
+      _isSearchOpen = true;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _searchFocusNode.requestFocus();
+      }
+    });
+  }
+
+  void _closeSearch(List<ReadingItem> items) {
+    setState(() {
+      _isSearchOpen = false;
+      _searchQuery = '';
+      _searchController.clear();
+      final visibleIds = items.map((item) => item.id).toSet();
+      _selectedIds.removeWhere((id) => !visibleIds.contains(id));
+    });
+  }
+
+  void _updateSearchQuery(String value, List<ReadingItem> items) {
+    final nextQuery = value.trim();
+    final visibleIds = _filterItemsWithQuery(items, nextQuery)
+        .map((item) => item.id)
+        .toSet();
+    setState(() {
+      _searchQuery = nextQuery;
+      _selectedIds.removeWhere((id) => !visibleIds.contains(id));
+    });
+  }
+
+  List<ReadingItem> _filterItems(List<ReadingItem> items) {
+    return _filterItemsWithQuery(items, _searchQuery);
+  }
+
+  List<ReadingItem> _filterItemsWithQuery(
+    List<ReadingItem> items,
+    String query,
+  ) {
+    final normalizedQuery = _normalizeSearch(query);
+    if (normalizedQuery.isEmpty) {
+      return items;
+    }
+
+    return items.where((item) {
+      final record = BobbinInventoryRecord.fromItem(item);
+      final lot = _normalizeSearch(record.lot);
+      final warehouseCode = _normalizeSearch(record.warehouseCode ?? '');
+      return lot.contains(normalizedQuery) ||
+          warehouseCode.contains(normalizedQuery);
+    }).toList(growable: false);
+  }
+
+  String _normalizeSearch(String value) {
+    return value.trim().toLowerCase();
   }
 
   Future<void> _addCode(
@@ -1238,6 +1348,14 @@ class _ReadingsSection extends StatelessWidget {
     required this.items,
     required this.selectedIds,
     required this.selectedCount,
+    required this.totalCount,
+    required this.isSearchOpen,
+    required this.searchQuery,
+    required this.onOpenSearch,
+    required this.onCloseSearch,
+    required this.onSearchChanged,
+    required this.searchController,
+    required this.searchFocusNode,
     required this.fillAvailableHeight,
     required this.onSelectionChanged,
     required this.onEdit,
@@ -1247,6 +1365,14 @@ class _ReadingsSection extends StatelessWidget {
   final List<ReadingItem> items;
   final Set<String> selectedIds;
   final int selectedCount;
+  final int totalCount;
+  final bool isSearchOpen;
+  final String searchQuery;
+  final VoidCallback onOpenSearch;
+  final VoidCallback onCloseSearch;
+  final ValueChanged<String> onSearchChanged;
+  final TextEditingController searchController;
+  final FocusNode searchFocusNode;
   final bool fillAvailableHeight;
   final void Function(String itemId, bool value) onSelectionChanged;
   final ValueChanged<ReadingItem> onEdit;
@@ -1254,64 +1380,148 @@ class _ReadingsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final hasActiveSearch = searchQuery.trim().isNotEmpty;
     final header = Padding(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Lista global',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final stackedHeader = constraints.maxWidth < 520;
+          final titleBlock = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Lista global',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                selectedCount > 0
+                    ? '$selectedCount itens selecionados para exportacao'
+                    : isSearchOpen
+                        ? 'Pesquise por lote ou armazem.'
+                        : hasActiveSearch
+                        ? 'Filtrando lotes por lote de bobina ou armazem.'
+                        : 'Todos os lotes de bobina registrados aparecem aqui em tempo real.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppColors.steel,
+                    ),
+              ),
+            ],
+          );
+
+          final controls = Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (!isSearchOpen)
+                IconButton.outlined(
+                  tooltip: 'Buscar lote ou armazem',
+                  onPressed: onOpenSearch,
+                  icon: const Icon(Icons.search_rounded),
+                ),
+              if (!isSearchOpen) const SizedBox(width: 8),
+              Container(
+                decoration: BoxDecoration(
+                  color: AppColors.mist,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Text(
+                  '${items.length} itens',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: AppColors.ink,
                         fontWeight: FontWeight.w700,
                       ),
                 ),
-                const SizedBox(height: 4),
+              ),
+            ],
+          );
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (stackedHeader) ...[
+                titleBlock,
+                const SizedBox(height: 12),
+                controls,
+              ] else
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: titleBlock),
+                    const SizedBox(width: 12),
+                    controls,
+                  ],
+                ),
+              if (isSearchOpen) ...[
+                const SizedBox(height: 14),
+                TextField(
+                  controller: searchController,
+                  focusNode: searchFocusNode,
+                  onChanged: onSearchChanged,
+                  decoration: InputDecoration(
+                    labelText: 'Pesquisar lote ou armazem',
+                    prefixIcon: const Icon(Icons.search_rounded),
+                    suffixIcon: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (searchQuery.isNotEmpty)
+                          IconButton(
+                            tooltip: 'Limpar busca',
+                            onPressed: () {
+                              searchController.clear();
+                              onSearchChanged('');
+                            },
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                        IconButton(
+                          tooltip: 'Fechar busca',
+                          onPressed: onCloseSearch,
+                          icon: const Icon(Icons.keyboard_arrow_up_rounded),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+              if (hasActiveSearch) ...[
+                const SizedBox(height: 10),
                 Text(
-                  selectedCount > 0
-                      ? '$selectedCount itens selecionados para exportacao'
-                      : 'Todos os lotes de bobina registrados aparecem aqui em tempo real.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  '${items.length} de $totalCount itens encontrados',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: AppColors.steel,
+                        fontWeight: FontWeight.w600,
                       ),
                 ),
               ],
-            ),
-          ),
-          Container(
-            decoration: BoxDecoration(
-              color: AppColors.mist,
-              borderRadius: BorderRadius.circular(999),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Text(
-              '${items.length} itens',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.ink,
-                    fontWeight: FontWeight.w700,
-                  ),
-            ),
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
 
     Widget body;
     if (items.isEmpty) {
       body = fillAvailableHeight
-          ? const Expanded(
-              child: Center(
-                child: Padding(
-                  padding: EdgeInsets.all(24),
-                  child: _EmptyState(),
+          ? Expanded(
+              child: SingleChildScrollView(
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: _EmptyState(
+                      isSearchResultEmpty: hasActiveSearch,
+                    ),
+                  ),
                 ),
               ),
             )
-          : const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 42),
-              child: _EmptyState(),
+          : Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 42),
+              child: _EmptyState(
+                isSearchResultEmpty: hasActiveSearch,
+              ),
             );
     } else {
       final listView = ListView.separated(
@@ -1335,6 +1545,47 @@ class _ReadingsSection extends StatelessWidget {
       );
 
       body = fillAvailableHeight ? Expanded(child: listView) : listView;
+    }
+
+    if (fillAvailableHeight && isSearchOpen) {
+      final searchBody = items.isEmpty
+          ? Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 42),
+              child: _EmptyState(
+                isSearchResultEmpty: hasActiveSearch,
+              ),
+            )
+          : ListView.separated(
+              padding: const EdgeInsets.all(16),
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: items.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              itemBuilder: (context, index) {
+                final item = items[index];
+                return _ReadingCard(
+                  item: item,
+                  selected: selectedIds.contains(item.id),
+                  onChanged: (selected) => onSelectionChanged(item.id, selected),
+                  onEdit: () => onEdit(item),
+                  onDelete: () => onDelete(item),
+                );
+              },
+            );
+
+      return SectionCard(
+        padding: EdgeInsets.zero,
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              header,
+              const SizedBox(height: 16),
+              const Divider(height: 1, color: AppColors.border),
+              searchBody,
+            ],
+          ),
+        ),
+      );
     }
 
     return SectionCard(
@@ -1466,11 +1717,16 @@ class _ReadingCard extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
-  const _EmptyState();
+  const _EmptyState({
+    this.isSearchResultEmpty = false,
+  });
+
+  final bool isSearchResultEmpty;
 
   @override
   Widget build(BuildContext context) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
         const Icon(
           Icons.qr_code_2_outlined,
@@ -1479,7 +1735,9 @@ class _EmptyState extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         Text(
-          'Nenhum lote registrado',
+          isSearchResultEmpty
+              ? 'Nenhum lote encontrado para a pesquisa atual'
+              : 'Nenhum lote registrado',
           style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w700,
               ),
@@ -1487,7 +1745,9 @@ class _EmptyState extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(
-          'Use a leitura por camera no Android ou a entrada manual no navegador para comecar o inventario de bobinas.',
+          isSearchResultEmpty
+              ? 'Tente outro termo de pesquisa ou feche a busca para voltar a lista completa.'
+              : 'Use a leitura por camera no Android ou a entrada manual no navegador para comecar o inventario de bobinas.',
           style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                 color: AppColors.steel,
               ),
