@@ -1,5 +1,8 @@
 .worktrees/
 .superpowers/
+docs/manual/
+docs/superpowers/
+*.docx
 
 # Flutter / Dart
 .dart_tool/
