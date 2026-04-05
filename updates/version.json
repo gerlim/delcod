@@ -1,0 +1,7 @@
+{
+  "versionName": "1.0.0",
+  "versionCode": 1,
+  "apkUrl": "https://gerlim.github.io/delcod/updates/DelCod-1.apk",
+  "mandatory": false,
+  "releaseNotes": "Fluxo inicial de update automatico do APK."
+}

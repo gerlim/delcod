@@ -1,4 +1,0 @@
-enum DuplicateDecision {
-  saved,
-  warning,
-}
