@@ -68,6 +68,26 @@ Isso cria em `build/app_update/`:
 
 Os dois arquivos devem ser publicados no mesmo host e na mesma pasta.
 
+## Publicar update no GitHub Pages
+
+Para usar um host gratuito no proprio GitHub:
+
+```powershell
+dart run scripts/publish_android_update_to_github_pages.dart --release-notes "Melhorias da versao"
+```
+
+O script:
+
+- gera `build/app_update/DelCod-<versionCode>.apk`
+- gera `build/app_update/version.json`
+- monta o site em `build/github_pages_site/`
+- publica tudo na branch `gh-pages`
+
+URL final esperada:
+
+- site: `https://gerlim.github.io/delcod/`
+- manifesto: `https://gerlim.github.io/delcod/updates/version.json`
+
 ## Publicacao do update Android
 
 Para que o APK seja tratado como atualizacao pelo Android:
@@ -75,6 +95,7 @@ Para que o APK seja tratado como atualizacao pelo Android:
 - mantenha o mesmo `applicationId`
 - mantenha a mesma chave de assinatura
 - gere o pacote com `dart run scripts/prepare_android_update.dart`
+- ou publique direto no GitHub Pages com `dart run scripts/publish_android_update_to_github_pages.dart`
 - publique o APK com nome versionado, por exemplo `DelCod-2.apk`
 - publique ou atualize o `version.json`
 - use `apkUrl` com a mesma origem de `APP_UPDATE_MANIFEST_URL`
