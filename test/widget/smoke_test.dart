@@ -1,4 +1,6 @@
 import 'package:barcode_app/app/app.dart';
+import 'package:barcode_app/features/app_update/application/app_update_controller.dart';
+import 'package:barcode_app/features/app_update/data/app_update_repository.dart';
 import 'package:barcode_app/features/readings/data/readings_repository.dart';
 import 'package:barcode_app/features/readings/domain/reading_classification.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,6 +14,10 @@ void main() {
           readingsRepositoryProvider.overrideWithValue(
             _SmokeReadingsRepository(),
           ),
+          appUpdateFeatureEnabledProvider.overrideWithValue(true),
+          appUpdateRepositoryProvider.overrideWithValue(
+            _FailingAppUpdateRepository(),
+          ),
         ],
         child: const BarcodeApp(),
       ),
@@ -21,6 +27,13 @@ void main() {
     expect(find.text('DelCod'), findsOneWidget);
     expect(find.text('Sincronizado'), findsOneWidget);
   });
+}
+
+class _FailingAppUpdateRepository implements AppUpdateRepository {
+  @override
+  Future<AppUpdateCheckResult> checkForUpdate() async {
+    throw Exception('manifest unavailable');
+  }
 }
 
 class _SmokeReadingsRepository implements ReadingsRepository {

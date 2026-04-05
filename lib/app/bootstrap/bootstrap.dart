@@ -19,6 +19,7 @@ Future<BootstrapResult> bootstrapApplication({
   final resolvedConfig = config ?? AppConfig.fromEnvironment();
   final initializer = initializeSupabase ?? _initializeSupabase;
 
+  AppConfigRegistry.initialize(resolvedConfig);
   await initializer(resolvedConfig);
 
   return BootstrapResult(config: resolvedConfig);

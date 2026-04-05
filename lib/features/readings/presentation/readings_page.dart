@@ -4,6 +4,8 @@ import 'package:barcode_app/app/shell/shell_primitives.dart';
 import 'package:barcode_app/app/theme/app_colors.dart';
 import 'package:barcode_app/core/platform/file_download.dart';
 import 'package:barcode_app/core/platform/platform_capabilities.dart';
+import 'package:barcode_app/features/app_update/application/app_update_controller.dart';
+import 'package:barcode_app/features/app_update/presentation/app_update_banner.dart';
 import 'package:barcode_app/features/export/data/pdf_export_service.dart';
 import 'package:barcode_app/features/export/data/xlsx_export_service.dart';
 import 'package:barcode_app/features/export/domain/export_readings_payload.dart';
@@ -53,6 +55,9 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
   Widget build(BuildContext context) {
     final readings = ref.watch(readingsControllerProvider);
     final capabilities = ref.watch(platformCapabilitiesProvider);
+    final appUpdateState = capabilities.supportsCameraScanning
+        ? ref.watch(appUpdateControllerProvider)
+        : null;
     final screenWidth = MediaQuery.sizeOf(context).width;
     final compact = screenWidth < 760;
     final desktop = screenWidth >= 1040;
@@ -105,6 +110,10 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
                           ),
                           const SizedBox(height: 16),
                           const SyncStatusBanner(),
+                          if (appUpdateState?.shouldShowBanner ?? false) ...[
+                            const SizedBox(height: 12),
+                            _buildAppUpdateBanner(appUpdateState!),
+                          ],
                           const SizedBox(height: 20),
                           _buildCaptureCard(
                             context: context,
@@ -215,6 +224,10 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
                           ),
                           const SizedBox(height: 16),
                           const SyncStatusBanner(),
+                          if (appUpdateState?.shouldShowBanner ?? false) ...[
+                            const SizedBox(height: 12),
+                            _buildAppUpdateBanner(appUpdateState!),
+                          ],
                           const SizedBox(height: 20),
                           Expanded(
                             child: desktop
@@ -967,6 +980,15 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
       result.overwrittenCount > 0
           ? '${result.updatedCount} lotes atualizados. ${result.overwrittenCount} reescritos.'
           : '${result.updatedCount} lotes atualizados com armazem.',
+    );
+  }
+
+  Widget _buildAppUpdateBanner(AppUpdateState state) {
+    return AppUpdateBanner(
+      state: state,
+      onUpdateNow: () => ref.read(appUpdateControllerProvider.notifier).startUpdate(),
+      onDismiss: () => ref.read(appUpdateControllerProvider.notifier).dismissForSession(),
+      onRetry: () => ref.read(appUpdateControllerProvider.notifier).startUpdate(),
     );
   }
 

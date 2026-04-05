@@ -1,5 +1,7 @@
 // ignore_for_file: prefer_const_constructors
 
+import 'package:barcode_app/features/app_update/application/app_update_controller.dart';
+import 'package:barcode_app/features/app_update/domain/app_update_manifest.dart';
 import 'package:barcode_app/features/readings/data/readings_repository.dart';
 import 'package:barcode_app/features/readings/domain/reading_classification.dart';
 import 'package:barcode_app/features/readings/presentation/readings_page.dart';
@@ -355,6 +357,99 @@ void main() {
     expect(find.text('Nenhum lote encontrado para a pesquisa atual'), findsOneWidget);
   });
 
+  testWidgets('mostra banner de update no Android quando houver nova versao',
+      (tester) async {
+    final repository = _StaticReadingsRepository(items: const []);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          readingsRepositoryProvider.overrideWithValue(repository),
+          syncPollingEnabledProvider.overrideWithValue(false),
+          platformCapabilitiesProvider.overrideWithValue(
+            const PlatformCapabilities(
+              supportsCameraScanning: true,
+              supportsManualEntry: true,
+            ),
+          ),
+          appUpdateControllerProvider.overrideWith(
+            () => _StaticAppUpdateController(
+              AppUpdateState(
+                status: AppUpdateStatus.available,
+                currentVersionName: '1.0.0',
+                currentVersionCode: 1,
+                availableManifest: AppUpdateManifest.fromJson(
+                  {
+                    'versionName': '1.0.1',
+                    'versionCode': 2,
+                    'apkUrl':
+                        'https://updates.delcod.app/DelCod-2.apk',
+                  },
+                ),
+              ),
+            ),
+          ),
+        ],
+        child: const MaterialApp(
+          home: MediaQuery(
+            data: MediaQueryData(size: Size(390, 844)),
+            child: ReadingsPage(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Nova versao disponivel'), findsOneWidget);
+    expect(find.text('Atualizar agora'), findsOneWidget);
+    expect(find.text('Depois'), findsOneWidget);
+  });
+
+  testWidgets('mantem banner de update escondido no web', (tester) async {
+    final repository = _StaticReadingsRepository(items: const []);
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          readingsRepositoryProvider.overrideWithValue(repository),
+          syncPollingEnabledProvider.overrideWithValue(false),
+          platformCapabilitiesProvider.overrideWithValue(
+            const PlatformCapabilities(
+              supportsCameraScanning: false,
+              supportsManualEntry: true,
+            ),
+          ),
+          appUpdateControllerProvider.overrideWith(
+            () => _StaticAppUpdateController(
+              AppUpdateState(
+                status: AppUpdateStatus.available,
+                currentVersionName: '1.0.0',
+                currentVersionCode: 1,
+                availableManifest: AppUpdateManifest.fromJson(
+                  {
+                    'versionName': '1.0.1',
+                    'versionCode': 2,
+                    'apkUrl':
+                        'https://updates.delcod.app/DelCod-2.apk',
+                  },
+                ),
+              ),
+            ),
+          ),
+        ],
+        child: const MaterialApp(
+          home: MediaQuery(
+            data: MediaQueryData(size: Size(1440, 1000)),
+            child: ReadingsPage(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Nova versao disponivel'), findsNothing);
+  });
+
 }
 
 ReadingItem _buildItem({
@@ -448,4 +543,13 @@ class _StaticReadingsRepository implements ReadingsRepository {
 
   @override
   Stream<bool> watchOnlineStatus() => const Stream<bool>.empty();
+}
+
+class _StaticAppUpdateController extends AppUpdateController {
+  _StaticAppUpdateController(this._state);
+
+  final AppUpdateState _state;
+
+  @override
+  AppUpdateState build() => _state;
 }
