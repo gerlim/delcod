@@ -1,7 +1,10 @@
+import 'dart:convert';
+
 import 'package:barcode_app/app/bootstrap/app_config.dart';
 import 'package:barcode_app/features/app_update/data/app_update_repository.dart';
 import 'package:barcode_app/features/app_update/domain/app_update_manifest.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
 
 void main() {
   test('retorna desabilitado quando APP_UPDATE_MANIFEST_URL nao foi configurada', () async {
@@ -115,6 +118,19 @@ void main() {
       throwsFormatException,
     );
   });
+
+  test('faz a leitura do manifesto com cache buster para evitar resposta antiga', () async {
+    final client = _RecordingClient();
+    final reader = HttpAppUpdateManifestReader(client: client);
+
+    await reader.read(Uri.parse('https://gerlim.github.io/delcod/updates/version.json'));
+
+    expect(client.lastUri, isNotNull);
+    expect(client.lastUri!.host, 'gerlim.github.io');
+    expect(client.lastUri!.path, '/delcod/updates/version.json');
+    expect(client.lastUri!.queryParameters['t'], isNotEmpty);
+    expect(client.lastHeaders['cache-control'], 'no-cache');
+  });
 }
 
 class _FakeVersionReader implements AppVersionReader {
@@ -139,5 +155,26 @@ class _UnusedManifestReader implements AppUpdateManifestReader {
   @override
   Future<AppUpdateManifest> read(Uri manifestUri) {
     throw UnimplementedError();
+  }
+}
+
+class _RecordingClient extends http.BaseClient {
+  Uri? lastUri;
+  Map<String, String> lastHeaders = const {};
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    lastUri = request.url;
+    lastHeaders = Map<String, String>.from(request.headers);
+
+    final bytes = utf8.encode(
+      '{"versionName":"1.0.1","versionCode":2,"apkUrl":"https://gerlim.github.io/delcod/updates/DelCod-2.apk"}',
+    );
+
+    return http.StreamedResponse(
+      Stream<List<int>>.value(bytes),
+      200,
+      headers: const {'content-type': 'application/json'},
+    );
   }
 }

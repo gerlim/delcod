@@ -143,8 +143,14 @@ class HttpAppUpdateManifestReader implements AppUpdateManifestReader {
 
   @override
   Future<AppUpdateManifest> read(Uri manifestUri) async {
+    final requestUri = manifestUri.replace(
+      queryParameters: <String, String>{
+        ...manifestUri.queryParameters,
+        't': DateTime.now().millisecondsSinceEpoch.toString(),
+      },
+    );
     final response = await _client.get(
-      manifestUri,
+      requestUri,
       headers: const {'cache-control': 'no-cache'},
     );
 
