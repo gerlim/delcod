@@ -53,15 +53,32 @@ flutter build web --dart-define=SUPABASE_URL=SEU_URL --dart-define=SUPABASE_ANON
 flutter build apk --release --dart-define=SUPABASE_URL=SEU_URL --dart-define=SUPABASE_ANON_KEY=SUA_KEY --dart-define=APP_ENV=production --dart-define=APP_UPDATE_MANIFEST_URL=https://seu-host/version.json
 ```
 
+## Preparar pacote de update Android
+
+Depois de gerar o APK release, rode:
+
+```powershell
+dart run scripts/prepare_android_update.dart --base-url https://updates.seu-host/ --release-notes "Melhorias da versao"
+```
+
+Isso cria em `build/app_update/`:
+
+- `DelCod-<versionCode>.apk`
+- `version.json`
+
+Os dois arquivos devem ser publicados no mesmo host e na mesma pasta.
+
 ## Publicacao do update Android
 
 Para que o APK seja tratado como atualizacao pelo Android:
 
 - mantenha o mesmo `applicationId`
 - mantenha a mesma chave de assinatura
+- gere o pacote com `dart run scripts/prepare_android_update.dart`
 - publique o APK com nome versionado, por exemplo `DelCod-2.apk`
 - publique ou atualize o `version.json`
 - use `apkUrl` com a mesma origem de `APP_UPDATE_MANIFEST_URL`
+- configure `APP_UPDATE_MANIFEST_URL` com a URL final do `version.json`
 
 Exemplo de `version.json`:
 
