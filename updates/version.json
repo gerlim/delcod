@@ -1,7 +1,7 @@
 {
-  "versionName": "1.0.2",
-  "versionCode": 3,
-  "apkUrl": "https://gerlim.github.io/delcod/updates/DelCod-3.apk",
+  "versionName": "1.0.3",
+  "versionCode": 4,
+  "apkUrl": "https://gerlim.github.io/delcod/updates/DelCod-4.apk",
   "mandatory": false,
-  "releaseNotes": "Versao 3 para validar o update automatico do APK."
+  "releaseNotes": "Corrige sincronizacao entre app e site"
 }
