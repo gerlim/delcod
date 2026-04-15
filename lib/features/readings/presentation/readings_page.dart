@@ -1,4 +1,4 @@
-﻿import 'dart:typed_data';
+import 'dart:typed_data';
 
 import 'package:barcode_app/app/shell/shell_primitives.dart';
 import 'package:barcode_app/app/theme/app_colors.dart';
@@ -78,8 +78,7 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
                 .toList(growable: false);
             final exportItems =
                 selectedItems.isEmpty ? visibleItems : selectedItems;
-            final allSelected =
-                visibleItems.isNotEmpty &&
+            final allSelected = visibleItems.isNotEmpty &&
                 selectedItems.length == visibleItems.length;
 
             return LayoutBuilder(
@@ -106,10 +105,7 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
                           _PageHeader(
                             totalCount: items.length,
                             selectedCount: selectedItems.length,
-                            pendingCount: items
-                                .map(BobbinInventoryRecord.fromItem)
-                                .where((record) => !record.hasWarehouseAllocated)
-                                .length,
+                            pendingCount: _pendingCount(items),
                           ),
                           const SizedBox(height: 16),
                           const SyncStatusBanner(),
@@ -126,31 +122,17 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
                           _SummarySection(
                             totalCount: items.length,
                             selectedCount: selectedItems.length,
-                            pendingCount: items
-                                .map(BobbinInventoryRecord.fromItem)
-                                .where((record) => !record.hasWarehouseAllocated)
-                                .length,
+                            pendingCount: _pendingCount(items),
                           ),
                           const SizedBox(height: 16),
                           _ActionsSection(
                             hasItems: items.isNotEmpty,
                             allSelected: allSelected,
                             hasSelection: selectedItems.isNotEmpty,
-                            onToggleSelectAll: () {
-                              setState(() {
-                                if (allSelected) {
-                                  _selectedIds.removeWhere(
-                                    (id) => visibleItems.any(
-                                      (item) => item.id == id,
-                                    ),
-                                  );
-                                } else {
-                                  _selectedIds.addAll(
-                                    visibleItems.map((item) => item.id),
-                                  );
-                                }
-                              });
-                            },
+                            onToggleSelectAll: () => _toggleSelectAll(
+                              visibleItems: visibleItems,
+                              allSelected: allSelected,
+                            ),
                             onImportFile: () => _importFile(
                               existingCodes:
                                   items.map((item) => item.code).toSet(),
@@ -185,15 +167,7 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
                             searchController: _searchController,
                             searchFocusNode: _searchFocusNode,
                             fillAvailableHeight: false,
-                            onSelectionChanged: (itemId, value) {
-                              setState(() {
-                                if (value) {
-                                  _selectedIds.add(itemId);
-                                } else {
-                                  _selectedIds.remove(itemId);
-                                }
-                              });
-                            },
+                            onSelectionChanged: _setItemSelection,
                             onEdit: _showEditDialog,
                             onDelete: _deleteItem,
                           ),
@@ -220,10 +194,7 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
                           _PageHeader(
                             totalCount: items.length,
                             selectedCount: selectedItems.length,
-                            pendingCount: items
-                                .map(BobbinInventoryRecord.fromItem)
-                                .where((record) => !record.hasWarehouseAllocated)
-                                .length,
+                            pendingCount: _pendingCount(items),
                           ),
                           const SizedBox(height: 16),
                           const SyncStatusBanner(),
@@ -252,11 +223,9 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
                                                 totalCount: items.length,
                                                 selectedCount:
                                                     selectedItems.length,
-                                                pendingCount: items
-                                                    .map(BobbinInventoryRecord.fromItem)
-                                                    .where((record) =>
-                                                        !record.hasWarehouseAllocated)
-                                                    .length,
+                                                pendingCount: _pendingCount(
+                                                  items,
+                                                ),
                                               ),
                                               const SizedBox(height: 16),
                                               _ActionsSection(
@@ -264,34 +233,23 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
                                                 allSelected: allSelected,
                                                 hasSelection:
                                                     selectedItems.isNotEmpty,
-                                                onToggleSelectAll: () {
-                                                  setState(() {
-                                                    if (allSelected) {
-                                                      _selectedIds.removeWhere(
-                                                        (id) => visibleItems.any(
-                                                          (item) => item.id == id,
-                                                        ),
-                                                      );
-                                                    } else {
-                                                      _selectedIds.addAll(
-                                                        visibleItems.map(
-                                                          (item) => item.id,
-                                                        ),
-                                                      );
-                                                    }
-                                                  });
-                                                },
+                                                onToggleSelectAll: () =>
+                                                    _toggleSelectAll(
+                                                  visibleItems: visibleItems,
+                                                  allSelected: allSelected,
+                                                ),
                                                 onImportFile: () => _importFile(
                                                   existingCodes: items
                                                       .map((item) => item.code)
                                                       .toSet(),
                                                 ),
-                                                onAllocateWarehouse:
-                                                    selectedItems.isEmpty
-                                                        ? null
-                                                        : () => _allocateWarehouseForSelection(
-                                                              selectedItems,
-                                                            ),
+                                                onAllocateWarehouse: selectedItems
+                                                        .isEmpty
+                                                    ? null
+                                                    : () =>
+                                                        _allocateWarehouseForSelection(
+                                                          selectedItems,
+                                                        ),
                                                 onExportXlsx:
                                                     exportItems.isEmpty
                                                         ? null
@@ -330,15 +288,7 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
                                           searchController: _searchController,
                                           searchFocusNode: _searchFocusNode,
                                           fillAvailableHeight: true,
-                                          onSelectionChanged: (itemId, value) {
-                                            setState(() {
-                                              if (value) {
-                                                _selectedIds.add(itemId);
-                                              } else {
-                                                _selectedIds.remove(itemId);
-                                              }
-                                            });
-                                          },
+                                          onSelectionChanged: _setItemSelection,
                                           onEdit: _showEditDialog,
                                           onDelete: _deleteItem,
                                         ),
@@ -355,45 +305,30 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
                                       _SummarySection(
                                         totalCount: items.length,
                                         selectedCount: selectedItems.length,
-                                        pendingCount: items
-                                            .map(BobbinInventoryRecord.fromItem)
-                                            .where((record) =>
-                                                !record.hasWarehouseAllocated)
-                                            .length,
+                                        pendingCount: _pendingCount(items),
                                       ),
                                       const SizedBox(height: 16),
                                       _ActionsSection(
                                         hasItems: items.isNotEmpty,
                                         allSelected: allSelected,
                                         hasSelection: selectedItems.isNotEmpty,
-                                        onToggleSelectAll: () {
-                                          setState(() {
-                                            if (allSelected) {
-                                              _selectedIds.removeWhere(
-                                                (id) => visibleItems.any(
-                                                  (item) => item.id == id,
-                                                ),
-                                              );
-                                            } else {
-                                              _selectedIds.addAll(
-                                                visibleItems.map(
-                                                  (item) => item.id,
-                                                ),
-                                              );
-                                            }
-                                          });
-                                        },
+                                        onToggleSelectAll: () =>
+                                            _toggleSelectAll(
+                                          visibleItems: visibleItems,
+                                          allSelected: allSelected,
+                                        ),
                                         onImportFile: () => _importFile(
                                           existingCodes: items
                                               .map((item) => item.code)
                                               .toSet(),
                                         ),
-                                        onAllocateWarehouse:
-                                            selectedItems.isEmpty
-                                                ? null
-                                                : () => _allocateWarehouseForSelection(
-                                                      selectedItems,
-                                                    ),
+                                        onAllocateWarehouse: selectedItems
+                                                .isEmpty
+                                            ? null
+                                            : () =>
+                                                _allocateWarehouseForSelection(
+                                                  selectedItems,
+                                                ),
                                         onExportXlsx: exportItems.isEmpty
                                             ? null
                                             : () => _exportXlsx(exportItems),
@@ -413,21 +348,14 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
                                         isSearchOpen: _isSearchOpen,
                                         searchQuery: _searchQuery,
                                         onOpenSearch: _openSearch,
-                                        onCloseSearch: () => _closeSearch(items),
+                                        onCloseSearch: () =>
+                                            _closeSearch(items),
                                         onSearchChanged: (value) =>
                                             _updateSearchQuery(value, items),
                                         searchController: _searchController,
                                         searchFocusNode: _searchFocusNode,
                                         fillAvailableHeight: false,
-                                        onSelectionChanged: (itemId, value) {
-                                          setState(() {
-                                            if (value) {
-                                              _selectedIds.add(itemId);
-                                            } else {
-                                              _selectedIds.remove(itemId);
-                                            }
-                                          });
-                                        },
+                                        onSelectionChanged: _setItemSelection,
                                         onEdit: _showEditDialog,
                                         onDelete: _deleteItem,
                                       ),
@@ -450,6 +378,7 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
       ),
     );
   }
+
   Widget _buildCaptureCard({
     required BuildContext context,
     required PlatformCapabilities capabilities,
@@ -516,8 +445,8 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
                 });
               },
               warehouseOptions: _warehouseDropdownItems,
-              companyPreview:
-                  BobbinInventoryRecord.deriveCompanyName(_selectedWarehouseCode),
+              companyPreview: BobbinInventoryRecord.deriveCompanyName(
+                  _selectedWarehouseCode),
             ),
         ],
       ),
@@ -558,6 +487,38 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
 
   List<ReadingItem> _filterItems(List<ReadingItem> items) {
     return ReadingsListFilter.apply(items, _searchQuery);
+  }
+
+  int _pendingCount(List<ReadingItem> items) {
+    return items
+        .map(BobbinInventoryRecord.fromItem)
+        .where((record) => !record.hasWarehouseAllocated)
+        .length;
+  }
+
+  void _toggleSelectAll({
+    required List<ReadingItem> visibleItems,
+    required bool allSelected,
+  }) {
+    setState(() {
+      if (allSelected) {
+        _selectedIds.removeWhere(
+          (id) => visibleItems.any((item) => item.id == id),
+        );
+      } else {
+        _selectedIds.addAll(visibleItems.map((item) => item.id));
+      }
+    });
+  }
+
+  void _setItemSelection(String itemId, bool value) {
+    setState(() {
+      if (value) {
+        _selectedIds.add(itemId);
+      } else {
+        _selectedIds.remove(itemId);
+      }
+    });
   }
 
   Future<void> _addCode(
@@ -846,8 +807,7 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
       final commitResult =
           await ref.read(readingsControllerProvider.notifier).importReadings(
                 result.analysis.entries,
-                includeDuplicates:
-                    result.decision == ImportDialogDecision.all,
+                includeDuplicates: result.decision == ImportDialogDecision.all,
               );
 
       if (!mounted) {
@@ -948,12 +908,13 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
           overwriteDecision == _WarehouseOverwriteDecision.overwriteSelected;
     }
 
-    final result =
-        await ref.read(readingsControllerProvider.notifier).allocateWarehouse(
-              itemIds: selectedItems.map((item) => item.id).toList(growable: false),
-              warehouseCode: normalizedWarehouseCode,
-              overwriteExisting: overwriteExisting,
-            );
+    final result = await ref
+        .read(readingsControllerProvider.notifier)
+        .allocateWarehouse(
+          itemIds: selectedItems.map((item) => item.id).toList(growable: false),
+          warehouseCode: normalizedWarehouseCode,
+          overwriteExisting: overwriteExisting,
+        );
 
     if (!mounted) {
       return;
@@ -974,9 +935,12 @@ class _ReadingsPageState extends ConsumerState<ReadingsPage> {
   Widget _buildAppUpdateBanner(AppUpdateState state) {
     return AppUpdateBanner(
       state: state,
-      onUpdateNow: () => ref.read(appUpdateControllerProvider.notifier).startUpdate(),
-      onDismiss: () => ref.read(appUpdateControllerProvider.notifier).dismissForSession(),
-      onRetry: () => ref.read(appUpdateControllerProvider.notifier).startUpdate(),
+      onUpdateNow: () =>
+          ref.read(appUpdateControllerProvider.notifier).startUpdate(),
+      onDismiss: () =>
+          ref.read(appUpdateControllerProvider.notifier).dismissForSession(),
+      onRetry: () =>
+          ref.read(appUpdateControllerProvider.notifier).startUpdate(),
     );
   }
 

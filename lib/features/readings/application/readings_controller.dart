@@ -1,9 +1,10 @@
 import 'dart:async';
 
+import 'package:barcode_app/features/readings/application/readings_import_commit_planner.dart';
 import 'package:barcode_app/features/readings/data/readings_repository.dart';
+import 'package:barcode_app/features/readings/domain/bobbin_inventory_record.dart';
 import 'package:barcode_app/features/readings/domain/duplicate_decision.dart';
 import 'package:barcode_app/features/readings/domain/import_commit_result.dart';
-import 'package:barcode_app/features/readings/domain/bobbin_inventory_record.dart';
 import 'package:barcode_app/features/readings/domain/reading_classification.dart';
 import 'package:barcode_app/features/readings/domain/reading_type_classifier.dart';
 import 'package:barcode_app/features/readings/domain/warehouse_allocation_result.dart';
@@ -152,52 +153,33 @@ class ReadingsController extends AsyncNotifier<List<ReadingItem>> {
     final repository = ref.read(readingsRepositoryProvider);
     final activeItems = await repository.fetchActive();
     final existingCodes = activeItems.map((item) => item.code).toSet();
-    final seenInImport = <String>{};
-    final codesToImport = <String>[];
-    final classifications = <ReadingClassification>[];
-    final metadataPayloads = <Map<String, dynamic>?>[];
-    var skippedDuplicates = 0;
+    final plan = ref.read(readingsImportCommitPlannerProvider).build(
+          entries: normalizedEntries,
+          existingCodes: existingCodes,
+          includeDuplicates: includeDuplicates,
+          classify: _classify,
+          buildMetadataPayload: (entry, normalizedCode) {
+            return BobbinInventoryRecord.buildMetadata(
+              lot: normalizedCode,
+              warehouseCode: entry.metadata['warehouse_code'],
+              seed: Map<String, dynamic>.from(entry.metadata),
+            );
+          },
+        );
 
-    for (final entry in normalizedEntries) {
-      final code = entry.code;
-      final duplicate =
-          existingCodes.contains(code) || seenInImport.contains(code);
-      final metadataPayload = BobbinInventoryRecord.buildMetadata(
-        lot: code,
-        warehouseCode: entry.metadata['warehouse_code'],
-        seed: Map<String, dynamic>.from(entry.metadata),
-      );
-
-      if (duplicate) {
-        if (includeDuplicates) {
-          codesToImport.add(code);
-          classifications.add(_classify(code));
-          metadataPayloads.add(metadataPayload);
-        } else {
-          skippedDuplicates += 1;
-        }
-        continue;
-      }
-
-      seenInImport.add(code);
-      codesToImport.add(code);
-      classifications.add(_classify(code));
-      metadataPayloads.add(metadataPayload);
-    }
-
-    if (codesToImport.isNotEmpty) {
+    if (plan.hasItemsToImport) {
       await repository.addCodesBatch(
-        codes: codesToImport,
+        codes: plan.codesToImport,
         source: 'import',
-        classifications: classifications,
-        metadataPayloads: metadataPayloads,
+        classifications: plan.classifications,
+        metadataPayloads: plan.metadataPayloads,
       );
     }
 
     state = AsyncData(await repository.fetchActive());
     return ImportCommitResult(
-      importedCount: codesToImport.length,
-      skippedDuplicates: includeDuplicates ? 0 : skippedDuplicates,
+      importedCount: plan.codesToImport.length,
+      skippedDuplicates: includeDuplicates ? 0 : plan.skippedDuplicates,
     );
   }
 

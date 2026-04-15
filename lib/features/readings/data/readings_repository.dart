@@ -3,13 +3,17 @@ import 'dart:convert';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:barcode_app/data/remote/supabase/supabase_client_provider.dart';
+import 'package:barcode_app/features/readings/data/reading_item_json_mapper.dart';
+import 'package:barcode_app/features/readings/data/readings_remote_contract.dart';
 import 'package:barcode_app/features/readings/domain/reading_classification.dart';
-import 'package:flutter/foundation.dart';
+import 'package:barcode_app/features/readings/domain/reading_item.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase/supabase.dart';
 import 'package:uuid/uuid.dart';
+
+export 'package:barcode_app/features/readings/domain/reading_item.dart';
 
 final readingsRepositoryProvider = Provider<ReadingsRepository>((ref) {
   final repository = OfflineFirstReadingsRepository(
@@ -73,7 +77,6 @@ class OfflineFirstReadingsRepository implements ReadingsRepository {
     unawaited(_ensureInitialized());
   }
 
-  static const _tableName = 'shared_readings';
   static const _entriesKey = 'v2.shared_readings.entries';
   static const _pendingKey = 'v2.shared_readings.pending';
   static const _deviceIdKey = 'v2.shared_readings.device_id';
@@ -300,9 +303,9 @@ class OfflineFirstReadingsRepository implements ReadingsRepository {
     }
 
     _remoteSubscription ??= supabase
-        .from(_tableName)
-        .stream(primaryKey: ['id'])
-        .order('updated_at')
+        .from(ReadingsRemoteContract.tableName)
+        .stream(primaryKey: [ReadingsRemoteContract.id])
+        .order(ReadingsRemoteContract.updatedAt)
         .listen(
           _applyRemoteSnapshot,
           onError: (_, __) {},
@@ -314,9 +317,9 @@ class OfflineFirstReadingsRepository implements ReadingsRepository {
 
     final pendingSnapshot = List<_PendingReadingMutation>.of(_pending);
     for (final mutation in pendingSnapshot) {
-      await supabase.from(_tableName).upsert(
-            mutation.entry.toRemoteMap(),
-            onConflict: 'id',
+      await supabase.from(ReadingsRemoteContract.tableName).upsert(
+            ReadingItemJsonMapper.toJson(mutation.entry),
+            onConflict: ReadingsRemoteContract.id,
           );
       _pending.removeWhere((entry) => entry.id == mutation.id);
       await _persistPending();
@@ -346,7 +349,10 @@ class OfflineFirstReadingsRepository implements ReadingsRepository {
 
     final decoded = jsonDecode(raw) as List<dynamic>;
     return decoded
-        .map((entry) => ReadingItem.fromJson(entry as Map<String, dynamic>))
+        .map(
+          (entry) =>
+              ReadingItemJsonMapper.fromJson(entry as Map<String, dynamic>),
+        )
         .toList(growable: true);
   }
 
@@ -411,7 +417,7 @@ class OfflineFirstReadingsRepository implements ReadingsRepository {
     };
 
     for (final row in rows) {
-      final remote = ReadingItem.fromRemoteMap(row);
+      final remote = ReadingItemJsonMapper.fromJson(row);
       final current = merged[remote.id];
       if (current == null || remote.updatedAt.isAfter(current.updatedAt)) {
         merged[remote.id] = remote;
@@ -426,7 +432,7 @@ class OfflineFirstReadingsRepository implements ReadingsRepository {
   Future<void> _persistEntries() async {
     await _ensureInitialized();
     final encoded = jsonEncode(
-      _entries.map((item) => item.toJson()).toList(growable: false),
+      _entries.map(ReadingItemJsonMapper.toJson).toList(growable: false),
     );
     await _preferences?.setString(_entriesKey, encoded);
   }
@@ -458,146 +464,6 @@ class OfflineFirstReadingsRepository implements ReadingsRepository {
   }
 }
 
-@immutable
-class ReadingItem {
-  ReadingItem({
-    required this.id,
-    required this.code,
-    required this.source,
-    required this.updatedAt,
-    required this.deletedAt,
-    required this.deviceId,
-    String codeType = 'unknown',
-    ReadingClassificationStatus classificationStatus =
-        ReadingClassificationStatus.unknown,
-    List<String> classificationCandidates = const <String>[],
-    Map<String, dynamic>? detailsPayload,
-    Map<String, dynamic>? metadataPayload,
-    int schemaVersion = 1,
-    ReadingClassification? classification,
-  })  : codeType = classification?.codeType ?? codeType,
-        classificationStatus =
-            classification?.classificationStatus ?? classificationStatus,
-        classificationCandidates =
-            classification?.classificationCandidates ?? classificationCandidates,
-        detailsPayload = classification?.detailsPayload ?? detailsPayload,
-        metadataPayload = metadataPayload == null
-            ? null
-            : Map<String, dynamic>.unmodifiable(metadataPayload),
-        schemaVersion = classification?.schemaVersion ?? schemaVersion;
-
-  final String id;
-  final String code;
-  final String source;
-  final DateTime updatedAt;
-  final DateTime? deletedAt;
-  final String deviceId;
-  final String codeType;
-  final ReadingClassificationStatus classificationStatus;
-  final List<String> classificationCandidates;
-  final Map<String, dynamic>? detailsPayload;
-  final Map<String, dynamic>? metadataPayload;
-  final int schemaVersion;
-
-  ReadingItem copyWith({
-    String? id,
-    String? code,
-    String? source,
-    DateTime? updatedAt,
-    DateTime? deletedAt,
-    String? deviceId,
-    String? codeType,
-    ReadingClassificationStatus? classificationStatus,
-    List<String>? classificationCandidates,
-    Map<String, dynamic>? detailsPayload,
-    Map<String, dynamic>? metadataPayload,
-    int? schemaVersion,
-    ReadingClassification? classification,
-  }) {
-    return ReadingItem(
-      id: id ?? this.id,
-      code: code ?? this.code,
-      source: source ?? this.source,
-      updatedAt: updatedAt ?? this.updatedAt,
-      deletedAt: deletedAt ?? this.deletedAt,
-      deviceId: deviceId ?? this.deviceId,
-      codeType: classification?.codeType ?? codeType ?? this.codeType,
-      classificationStatus: classification?.classificationStatus ??
-          classificationStatus ??
-          this.classificationStatus,
-      classificationCandidates: classification?.classificationCandidates ??
-          classificationCandidates ??
-          this.classificationCandidates,
-      detailsPayload:
-          classification?.detailsPayload ?? detailsPayload ?? this.detailsPayload,
-      metadataPayload: metadataPayload ?? this.metadataPayload,
-      schemaVersion:
-          classification?.schemaVersion ?? schemaVersion ?? this.schemaVersion,
-    );
-  }
-
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'code': code,
-      'source': source,
-      'updated_at': updatedAt.toIso8601String(),
-      'deleted_at': deletedAt?.toIso8601String(),
-      'device_id': deviceId,
-      ...ReadingClassification.stored(
-        codeType: codeType,
-        classificationStatus: classificationStatus,
-        classificationCandidates: classificationCandidates,
-        detailsPayload: detailsPayload,
-        schemaVersion: schemaVersion,
-      ).toJson(),
-      'metadata_payload': metadataPayload,
-    };
-  }
-
-  Map<String, dynamic> toRemoteMap() => toJson();
-
-  factory ReadingItem.fromJson(Map<String, dynamic> json) {
-    return ReadingItem(
-      id: json['id'] as String,
-      code: json['code'] as String,
-      source: json['source'] as String? ?? 'manual',
-      updatedAt: DateTime.parse(json['updated_at'] as String).toUtc(),
-      deletedAt: json['deleted_at'] == null
-          ? null
-          : DateTime.parse(json['deleted_at'] as String).toUtc(),
-      deviceId: json['device_id'] as String? ?? 'unknown-device',
-      classification: ReadingClassification.fromJson(json),
-      metadataPayload: _readMetadataPayload(json['metadata_payload']),
-    );
-  }
-
-  factory ReadingItem.fromRemoteMap(Map<String, dynamic> json) {
-    return ReadingItem(
-      id: json['id'] as String,
-      code: json['code'] as String,
-      source: json['source'] as String? ?? 'manual',
-      updatedAt: DateTime.parse(json['updated_at'] as String).toUtc(),
-      deletedAt: json['deleted_at'] == null
-          ? null
-          : DateTime.parse(json['deleted_at'] as String).toUtc(),
-      deviceId: json['device_id'] as String? ?? 'unknown-device',
-      classification: ReadingClassification.fromJson(json),
-      metadataPayload: _readMetadataPayload(json['metadata_payload']),
-    );
-  }
-}
-
-Map<String, dynamic>? _readMetadataPayload(Object? rawPayload) {
-  if (rawPayload is Map<String, dynamic>) {
-    return rawPayload;
-  }
-  if (rawPayload is Map) {
-    return Map<String, dynamic>.from(rawPayload);
-  }
-  return null;
-}
-
 class _PendingReadingMutation {
   const _PendingReadingMutation({
     required this.id,
@@ -610,14 +476,16 @@ class _PendingReadingMutation {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'entry': entry.toJson(),
+      'entry': ReadingItemJsonMapper.toJson(entry),
     };
   }
 
   factory _PendingReadingMutation.fromJson(Map<String, dynamic> json) {
     return _PendingReadingMutation(
       id: json['id'] as String,
-      entry: ReadingItem.fromJson(json['entry'] as Map<String, dynamic>),
+      entry: ReadingItemJsonMapper.fromJson(
+        json['entry'] as Map<String, dynamic>,
+      ),
     );
   }
 }

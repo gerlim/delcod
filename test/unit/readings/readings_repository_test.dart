@@ -1,3 +1,4 @@
+import 'package:barcode_app/features/readings/data/reading_item_json_mapper.dart';
 import 'package:barcode_app/features/readings/data/readings_repository.dart';
 import 'package:barcode_app/features/readings/domain/reading_classification.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -24,7 +25,7 @@ void main() {
       schemaVersion: 1,
     );
 
-    expect(item.toJson(), {
+    expect(ReadingItemJsonMapper.toJson(item), {
       'id': '1',
       'code': 'BOB-123',
       'source': 'camera',
@@ -63,17 +64,21 @@ void main() {
       schemaVersion: 1,
     );
 
-    expect(item.toJson()['code_type'], 'unknown');
-    expect(item.toJson()['classification_status'], 'ambiguous');
-    expect(item.toJson()['classification_candidates'], const [
+    expect(ReadingItemJsonMapper.toJson(item)['code_type'], 'unknown');
+    expect(
+      ReadingItemJsonMapper.toJson(item)['classification_status'],
+      'ambiguous',
+    );
+    expect(
+        ReadingItemJsonMapper.toJson(item)['classification_candidates'], const [
       'paper_bobbin',
       'paper_sheet',
     ]);
-    expect(item.toJson()['details_payload'], isNull);
+    expect(ReadingItemJsonMapper.toJson(item)['details_payload'], isNull);
   });
 
   test('hidrata leituras antigas com defaults estruturais', () {
-    final item = ReadingItem.fromJson(const {
+    final item = ReadingItemJsonMapper.fromJson(const {
       'id': 'legacy-1',
       'code': '7891234567890',
       'source': 'manual',
