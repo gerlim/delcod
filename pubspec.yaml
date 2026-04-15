@@ -2,7 +2,7 @@ name: barcode_app
 description: "DelCod: leitura rapida e lista compartilhada de codigos de barras."
 publish_to: 'none'
 
-version: 1.0.2+3
+version: 1.0.3+4
 
 environment:
   sdk: ^3.5.4

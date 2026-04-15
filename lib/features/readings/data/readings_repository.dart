@@ -5,6 +5,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:barcode_app/data/remote/supabase/supabase_client_provider.dart';
 import 'package:barcode_app/features/readings/data/reading_item_json_mapper.dart';
 import 'package:barcode_app/features/readings/data/readings_remote_contract.dart';
+import 'package:barcode_app/features/readings/data/reading_sync_merge_policy.dart';
 import 'package:barcode_app/features/readings/domain/reading_classification.dart';
 import 'package:barcode_app/features/readings/domain/reading_item.dart';
 import 'package:flutter/services.dart';
@@ -317,10 +318,18 @@ class OfflineFirstReadingsRepository implements ReadingsRepository {
 
     final pendingSnapshot = List<_PendingReadingMutation>.of(_pending);
     for (final mutation in pendingSnapshot) {
-      await supabase.from(ReadingsRemoteContract.tableName).upsert(
+      final response = await supabase
+          .from(ReadingsRemoteContract.tableName)
+          .upsert(
             ReadingItemJsonMapper.toJson(mutation.entry),
             onConflict: ReadingsRemoteContract.id,
-          );
+          )
+          .select()
+          .single();
+      final persisted = ReadingItemJsonMapper.fromJson(
+        Map<String, dynamic>.from(response),
+      );
+      _upsertLocal(persisted);
       _pending.removeWhere((entry) => entry.id == mutation.id);
       await _persistPending();
     }
@@ -415,13 +424,16 @@ class OfflineFirstReadingsRepository implements ReadingsRepository {
     final merged = <String, ReadingItem>{
       for (final local in _entries) local.id: local,
     };
+    final pendingIds = _pending.map((entry) => entry.id).toSet();
 
     for (final row in rows) {
       final remote = ReadingItemJsonMapper.fromJson(row);
       final current = merged[remote.id];
-      if (current == null || remote.updatedAt.isAfter(current.updatedAt)) {
-        merged[remote.id] = remote;
-      }
+      merged[remote.id] = ReadingSyncMergePolicy.resolve(
+        current: current,
+        remote: remote,
+        hasPendingMutation: pendingIds.contains(remote.id),
+      );
     }
 
     _entries = merged.values.toList(growable: true);
