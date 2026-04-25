@@ -11,9 +11,7 @@ class SyncStatusBanner extends ConsumerWidget {
     final syncState = ref.watch(syncControllerProvider);
     final color = _accentColor(syncState.status);
     final background = _backgroundColor(syncState.status);
-    final detail = syncState.pendingCount == 0
-        ? 'Sem pendencias'
-        : '${syncState.pendingCount} operacoes aguardando envio';
+    final detail = _detailText(context, syncState);
 
     return Container(
       width: double.infinity,
@@ -61,6 +59,60 @@ class SyncStatusBanner extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  String _detailText(BuildContext context, SyncState syncState) {
+    switch (syncState.status) {
+      case SyncStatus.offline:
+        return syncState.pendingCount == 0
+            ? 'Sem internet. Novas leituras ficam salvas no aparelho.'
+            : 'Sem internet. ${syncState.pendingCount} operacoes aguardando envio.';
+      case SyncStatus.syncing:
+        final attemptText = _timeText(context, syncState.lastAttemptAt);
+        if (attemptText == null) {
+          return '${syncState.pendingCount} operacoes aguardando envio';
+        }
+        return 'Ultima tentativa $attemptText. ${syncState.pendingCount} operacoes aguardando envio.';
+      case SyncStatus.synced:
+        final syncedText = _timeText(context, syncState.lastSyncedAt);
+        return syncedText == null
+            ? 'Sem pendencias'
+            : 'Ultima sincronizacao $syncedText';
+      case SyncStatus.failed:
+        final attemptText = _timeText(context, syncState.lastAttemptAt);
+        final errorText = _cleanError(syncState.lastError);
+        if (attemptText == null && errorText == null) {
+          return 'Falha ao sincronizar. Tente novamente em instantes.';
+        }
+        if (attemptText == null) {
+          return errorText!;
+        }
+        if (errorText == null) {
+          return 'Ultima tentativa $attemptText';
+        }
+        return 'Ultima tentativa $attemptText. $errorText';
+    }
+  }
+
+  String? _timeText(BuildContext context, DateTime? value) {
+    if (value == null) {
+      return null;
+    }
+
+    final local = value.toLocal();
+    final formatted = MaterialLocalizations.of(context).formatTimeOfDay(
+      TimeOfDay.fromDateTime(local),
+      alwaysUse24HourFormat: true,
+    );
+    return 'as $formatted';
+  }
+
+  String? _cleanError(String? value) {
+    final trimmed = value?.trim();
+    if (trimmed == null || trimmed.isEmpty) {
+      return null;
+    }
+    return trimmed.replaceFirst('Exception: ', '');
   }
 
   IconData _statusIcon(SyncStatus status) {

@@ -1,7 +1,11 @@
 import 'dart:async';
 
 import 'package:barcode_app/features/readings/data/readings_repository.dart';
+import 'package:barcode_app/features/sync/domain/sync_log_entry.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+export 'package:barcode_app/features/sync/domain/sync_log_entry.dart'
+    show SyncLogEntry, SyncStatus;
 
 final syncControllerProvider = NotifierProvider<SyncController, SyncState>(
   SyncController.new,
@@ -9,28 +13,30 @@ final syncControllerProvider = NotifierProvider<SyncController, SyncState>(
 
 final syncPollingEnabledProvider = Provider<bool>((ref) => true);
 
-enum SyncStatus {
-  offline,
-  syncing,
-  synced,
-  failed,
-}
-
 class SyncState {
   const SyncState({
     required this.status,
     required this.pendingCount,
     this.lastError,
+    this.lastAttemptAt,
+    this.lastSyncedAt,
+    this.recentEvents = const <SyncLogEntry>[],
   });
 
   const SyncState.initial()
       : status = SyncStatus.synced,
         pendingCount = 0,
-        lastError = null;
+        lastError = null,
+        lastAttemptAt = null,
+        lastSyncedAt = null,
+        recentEvents = const <SyncLogEntry>[];
 
   final SyncStatus status;
   final int pendingCount;
   final String? lastError;
+  final DateTime? lastAttemptAt;
+  final DateTime? lastSyncedAt;
+  final List<SyncLogEntry> recentEvents;
 
   String get label {
     switch (status) {
@@ -49,12 +55,18 @@ class SyncState {
     SyncStatus? status,
     int? pendingCount,
     String? lastError,
+    DateTime? lastAttemptAt,
+    DateTime? lastSyncedAt,
+    List<SyncLogEntry>? recentEvents,
     bool clearError = false,
   }) {
     return SyncState(
       status: status ?? this.status,
       pendingCount: pendingCount ?? this.pendingCount,
       lastError: clearError ? null : (lastError ?? this.lastError),
+      lastAttemptAt: lastAttemptAt ?? this.lastAttemptAt,
+      lastSyncedAt: lastSyncedAt ?? this.lastSyncedAt,
+      recentEvents: recentEvents ?? this.recentEvents,
     );
   }
 }
@@ -97,13 +109,19 @@ class SyncController extends Notifier<SyncState> {
 
   Future<void> refresh() async {
     final repository = ref.read(readingsRepositoryProvider);
+    final attemptAt = DateTime.now();
     final online = await repository.checkOnlineStatus();
 
     if (!online) {
-      state = state.copyWith(
+      state = _appendEvent(
+        state.copyWith(
+          status: SyncStatus.offline,
+          pendingCount: await repository.pendingCount(),
+          lastAttemptAt: attemptAt,
+          clearError: true,
+        ),
         status: SyncStatus.offline,
-        pendingCount: await repository.pendingCount(),
-        clearError: true,
+        message: 'Sem conexao. Aguardando internet para sincronizar.',
       );
       return;
     }
@@ -112,23 +130,58 @@ class SyncController extends Notifier<SyncState> {
     state = state.copyWith(
       status: pendingBefore == 0 ? SyncStatus.synced : SyncStatus.syncing,
       pendingCount: pendingBefore,
+      lastAttemptAt: attemptAt,
       clearError: true,
     );
 
     try {
       await repository.syncNow();
       final pendingAfter = await repository.pendingCount();
-      state = state.copyWith(
-        status: pendingAfter == 0 ? SyncStatus.synced : SyncStatus.syncing,
-        pendingCount: pendingAfter,
-        clearError: true,
+      final nextStatus =
+          pendingAfter == 0 ? SyncStatus.synced : SyncStatus.syncing;
+      state = _appendEvent(
+        state.copyWith(
+          status: nextStatus,
+          pendingCount: pendingAfter,
+          lastSyncedAt: pendingAfter == 0 ? DateTime.now() : state.lastSyncedAt,
+          clearError: true,
+        ),
+        status: nextStatus,
+        message: pendingAfter == 0
+            ? 'Sincronizacao concluida com sucesso.'
+            : '$pendingAfter operacoes ainda aguardando envio.',
       );
     } catch (error) {
-      state = state.copyWith(
+      final message = error.toString();
+      state = _appendEvent(
+        state.copyWith(
+          status: SyncStatus.failed,
+          pendingCount: await repository.pendingCount(),
+          lastError: message,
+        ),
         status: SyncStatus.failed,
-        pendingCount: await repository.pendingCount(),
-        lastError: error.toString(),
+        message: message,
       );
     }
+  }
+
+  SyncState _appendEvent(
+    SyncState nextState, {
+    required SyncStatus status,
+    required String message,
+  }) {
+    final trimmedMessage = message.trim();
+    final recentEvents = <SyncLogEntry>[
+      SyncLogEntry(
+        occurredAt: DateTime.now(),
+        status: status,
+        message: trimmedMessage,
+      ),
+      ...nextState.recentEvents,
+    ];
+
+    return nextState.copyWith(
+      recentEvents: recentEvents.take(12).toList(growable: false),
+    );
   }
 }
