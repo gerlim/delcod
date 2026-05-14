@@ -1,7 +1,7 @@
 {
-  "versionName": "1.1.3",
-  "versionCode": 9,
-  "apkUrl": "https://gerlim.github.io/delcod/updates/DelCod-9.apk",
+  "versionName": "1.1.4",
+  "versionCode": 10,
+  "apkUrl": "https://gerlim.github.io/delcod/updates/DelCod-10.apk",
   "mandatory": false,
-  "releaseNotes": "Aceita layout Protheus de saldos"
+  "releaseNotes": "Mostra atualizacao automatica no inventario"
 }
