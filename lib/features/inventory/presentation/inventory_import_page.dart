@@ -1,7 +1,11 @@
 import 'package:barcode_app/app/shell/shell_primitives.dart';
 import 'package:barcode_app/app/theme/app_colors.dart';
+import 'package:barcode_app/core/platform/file_download.dart';
 import 'package:barcode_app/features/import/data/reading_import_picker.dart';
 import 'package:barcode_app/features/inventory/application/inventory_import_controller.dart';
+import 'package:barcode_app/features/inventory/application/inventory_export_builder.dart';
+import 'package:barcode_app/features/inventory/data/inventory_repository.dart';
+import 'package:barcode_app/features/inventory/export/inventory_audit_xlsx_export_service.dart';
 import 'package:barcode_app/features/inventory/presentation/audit_status_summary.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -41,7 +45,9 @@ class InventoryImportPage extends ConsumerWidget {
                   label: const Text('Importar XLSX'),
                 ),
                 OutlinedButton.icon(
-                  onPressed: onExportPressed,
+                  onPressed: resolvedState.activeAuditId == null
+                      ? null
+                      : onExportPressed ?? () => _exportActiveAudit(ref),
                   icon: const Icon(Icons.download_outlined),
                   label: const Text('Exportar resultado'),
                 ),
@@ -123,6 +129,23 @@ class InventoryImportPage extends ConsumerWidget {
           filename: picked.name,
           bytes: picked.bytes,
         );
+  }
+
+  Future<void> _exportActiveAudit(WidgetRef ref) async {
+    final repository = ref.read(inventoryRepositoryProvider);
+    final activeAudit = await repository.fetchActiveAudit();
+    if (activeAudit == null) {
+      return;
+    }
+    final snapshot = await repository.fetchSnapshot(activeAudit.id);
+    final export = const InventoryExportBuilder().build(snapshot);
+    final bytes = const InventoryAuditXlsxExportService().buildFile(export);
+    await downloadBytes(
+      bytes: bytes,
+      filename: 'auditoria_inventario.xlsx',
+      mimeType:
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    );
   }
 }
 
