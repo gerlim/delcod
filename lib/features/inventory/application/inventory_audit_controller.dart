@@ -80,7 +80,10 @@ class InventoryAuditController {
     final audit = await _repository.fetchActiveAudit();
     _state = audit == null
         ? const InventoryAuditFlowState.noActiveAudit()
-        : InventoryAuditFlowState.ready(activeAudit: audit);
+        : InventoryAuditFlowState.ready(
+            activeAudit: audit,
+            auditedResults: await _repository.fetchResults(audit.id),
+          );
     return _state;
   }
 
@@ -92,6 +95,7 @@ class InventoryAuditController {
       return _state;
     }
 
+    final auditedResults = await _repository.fetchResults(audit.id);
     final existingResult = await _repository.findResultByBarcode(
       audit.id,
       barcode,
@@ -103,6 +107,7 @@ class InventoryAuditController {
         scannedBarcode: barcode,
         item: await _repository.findItemByBarcode(audit.id, barcode),
         existingResult: existingResult,
+        auditedResults: auditedResults,
       );
       return _state;
     }
@@ -116,6 +121,7 @@ class InventoryAuditController {
       scannedBarcode: barcode,
       item: item,
       existingResult: null,
+      auditedResults: auditedResults,
     );
     return _state;
   }
@@ -179,6 +185,7 @@ class InventoryAuditController {
     _state = _state.copyWith(
       status: InventoryAuditFlowStatus.saved,
       existingResult: saved,
+      auditedResults: [..._state.auditedResults, saved],
     );
     return saved;
   }
@@ -201,10 +208,14 @@ class InventoryAuditFlowState {
     this.scannedBarcode,
     this.item,
     this.existingResult,
+    this.auditedResults = const [],
     this.errorMessage,
   });
 
-  const InventoryAuditFlowState.ready({this.activeAudit})
+  const InventoryAuditFlowState.ready({
+    this.activeAudit,
+    this.auditedResults = const [],
+  })
       : status = InventoryAuditFlowStatus.ready,
         scannedBarcode = null,
         item = null,
@@ -217,6 +228,7 @@ class InventoryAuditFlowState {
         scannedBarcode = null,
         item = null,
         existingResult = null,
+        auditedResults = const [],
         errorMessage = null;
 
   final InventoryAuditFlowStatus status;
@@ -224,6 +236,7 @@ class InventoryAuditFlowState {
   final String? scannedBarcode;
   final InventoryItem? item;
   final InventoryAuditResult? existingResult;
+  final List<InventoryAuditResult> auditedResults;
   final String? errorMessage;
 
   InventoryAuditFlowState copyWith({
@@ -232,6 +245,7 @@ class InventoryAuditFlowState {
     String? scannedBarcode,
     InventoryItem? item,
     InventoryAuditResult? existingResult,
+    List<InventoryAuditResult>? auditedResults,
     String? errorMessage,
   }) {
     return InventoryAuditFlowState(
@@ -240,6 +254,7 @@ class InventoryAuditFlowState {
       scannedBarcode: scannedBarcode ?? this.scannedBarcode,
       item: item ?? this.item,
       existingResult: existingResult ?? this.existingResult,
+      auditedResults: auditedResults ?? this.auditedResults,
       errorMessage: errorMessage ?? this.errorMessage,
     );
   }

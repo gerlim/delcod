@@ -72,11 +72,47 @@ void main() {
     expect(find.text('Essa bobina ja foi auditada'), findsOneWidget);
     expect(find.text('Correto'), findsNothing);
   });
+
+  testWidgets('shows audited barcodes with result status', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: InventoryScanPage(
+          state: _foundState(
+            auditedResults: [
+              InventoryAuditResult.correct(
+                id: 'result-1',
+                auditId: 'audit-1',
+                inventoryItemId: 'item-1',
+                scannedBarcode: '789001',
+                scannedAt: DateTime.utc(2026, 5, 14),
+              ),
+              InventoryAuditResult.notFound(
+                id: 'result-2',
+                auditId: 'audit-1',
+                scannedBarcode: '999999',
+                scannedAt: DateTime.utc(2026, 5, 14, 1),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    await tester.drag(find.byType(ListView), const Offset(0, -420));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Codigos lidos'), findsOneWidget);
+    expect(find.text('789001'), findsWidgets);
+    expect(find.text('Correto'), findsWidgets);
+    expect(find.text('999999'), findsOneWidget);
+    expect(find.text('Nao esta no banco'), findsOneWidget);
+  });
 }
 
 InventoryAuditFlowState _foundState({
   InventoryAuditFlowStatus status = InventoryAuditFlowStatus.found,
   InventoryAuditResult? existingResult,
+  List<InventoryAuditResult> auditedResults = const [],
 }) {
   return InventoryAuditFlowState(
     status: status,
@@ -103,5 +139,6 @@ InventoryAuditFlowState _foundState({
       rowNumber: 2,
     ),
     existingResult: existingResult,
+    auditedResults: auditedResults,
   );
 }

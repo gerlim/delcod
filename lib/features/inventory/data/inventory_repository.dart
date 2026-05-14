@@ -98,6 +98,10 @@ class InventoryRepository {
     return _dataSource.findResultByBarcode(auditId, barcode.trim());
   }
 
+  Future<List<InventoryAuditResult>> fetchResults(String auditId) {
+    return _dataSource.fetchResults(auditId);
+  }
+
   Future<InventoryAuditResult> saveResult(InventoryAuditResult result) async {
     final existing = await findResultByBarcode(
       result.auditId,

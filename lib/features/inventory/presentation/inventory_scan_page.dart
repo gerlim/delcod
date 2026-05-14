@@ -96,6 +96,10 @@ class _InventoryScanPageState extends ConsumerState<InventoryScanPage> {
               ),
               const SizedBox(height: 16),
               _buildStateContent(state),
+              if (state.auditedResults.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                _AuditedResultsList(results: state.auditedResults),
+              ],
             ],
           ),
         ),
@@ -265,5 +269,72 @@ class _ManualLookup extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _AuditedResultsList extends StatelessWidget {
+  const _AuditedResultsList({required this.results});
+
+  final List<InventoryAuditResult> results;
+
+  @override
+  Widget build(BuildContext context) {
+    final ordered = results.reversed.toList(growable: false);
+    return SectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Codigos lidos',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 12),
+          ...ordered.map(
+            (result) => Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      result.scannedBarcode,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  StatusChip(
+                    label: _statusLabel(result.status),
+                    color: _statusColor(result.status),
+                    icon: _statusIcon(result.status),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _statusLabel(InventoryAuditResultStatus status) {
+    return switch (status) {
+      InventoryAuditResultStatus.correct => 'Correto',
+      InventoryAuditResultStatus.incorrect => 'Incorreto',
+      InventoryAuditResultStatus.notFound => 'Nao esta no banco',
+    };
+  }
+
+  Color _statusColor(InventoryAuditResultStatus status) {
+    return switch (status) {
+      InventoryAuditResultStatus.correct => AppColors.safeGreen,
+      InventoryAuditResultStatus.incorrect => AppColors.faultRed,
+      InventoryAuditResultStatus.notFound => AppColors.alertAmber,
+    };
+  }
+
+  IconData _statusIcon(InventoryAuditResultStatus status) {
+    return switch (status) {
+      InventoryAuditResultStatus.correct => Icons.check_circle_outline,
+      InventoryAuditResultStatus.incorrect => Icons.error_outline,
+      InventoryAuditResultStatus.notFound => Icons.warning_amber_outlined,
+    };
   }
 }

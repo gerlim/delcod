@@ -75,6 +75,25 @@ void main() {
     expect(saved.discrepancyFields, contains(InventoryDiscrepancyField.weight));
     expect(saved.note, 'Peso fisico diferente');
   });
+
+  test('keeps imported items and exposes audited results after saving', () async {
+    final repository = InventoryRepository(
+      dataSource: InMemoryInventoryRemoteDataSource(),
+    );
+    await _seedAudit(repository);
+    final controller = InventoryAuditController(repository: repository);
+
+    await controller.lookupBarcode('789001');
+    final saved = await controller.markCorrect();
+    final nextState = await controller.lookupBarcode('789002');
+
+    expect(saved.status, InventoryAuditResultStatus.correct);
+    expect(controller.currentState.auditedResults.map((result) {
+      return result.scannedBarcode;
+    }), contains('789001'));
+    expect(nextState.status, InventoryAuditFlowStatus.found);
+    expect(nextState.item?.barcode, '789002');
+  });
 }
 
 Future<dynamic> _seedAudit(InventoryRepository repository) {
@@ -90,6 +109,16 @@ Future<dynamic> _seedAudit(InventoryRepository repository) {
         weight: '482,5',
         warehouse: '05',
         rowNumber: 2,
+        rawPayload: {},
+      ),
+      InventoryItemDraft(
+        companyName: 'ABN Embalagens',
+        bobbinCode: 'BOB-002',
+        itemDescription: 'Papel branco',
+        barcode: '789002',
+        weight: '350,0',
+        warehouse: '04',
+        rowNumber: 3,
         rawPayload: {},
       ),
     ],
