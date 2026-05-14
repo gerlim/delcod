@@ -21,11 +21,16 @@ Future<void> main(List<String> args) async {
     _readPubspecVersion(await pubspecFile.readAsString()),
   );
 
-  final sourceApkPath =
-      options['source-apk'] as String? ??
-      path.join(projectRoot, 'build', 'app', 'outputs', 'apk', 'release', 'DelCod.apk');
-  final outputDirectoryPath =
-      options['output-dir'] as String? ??
+  final sourceApkPath = options['source-apk'] as String? ??
+      path.join(
+        projectRoot,
+        'build',
+        'app',
+        'outputs',
+        'flutter-apk',
+        'app-release.apk',
+      );
+  final outputDirectoryPath = options['output-dir'] as String? ??
       path.join(projectRoot, 'build', 'app_update');
   final appFilePrefix = options['app-prefix'] as String? ?? 'DelCod';
 

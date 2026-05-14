@@ -7,18 +7,26 @@ final readingImportPickerProvider = Provider<ReadingImportPicker>((ref) {
   return const FilePickerReadingImportPicker();
 });
 
+final inventoryImportPickerProvider = Provider<ReadingImportPicker>((ref) {
+  return const FilePickerReadingImportPicker(allowedExtensions: ['xlsx']);
+});
+
 abstract class ReadingImportPicker {
   Future<PickedImportFile?> pickFile();
 }
 
 class FilePickerReadingImportPicker implements ReadingImportPicker {
-  const FilePickerReadingImportPicker();
+  const FilePickerReadingImportPicker({
+    this.allowedExtensions = const ['csv', 'xlsx'],
+  });
+
+  final List<String> allowedExtensions;
 
   @override
   Future<PickedImportFile?> pickFile() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: const ['csv', 'xlsx'],
+      allowedExtensions: allowedExtensions,
       allowMultiple: false,
       withData: true,
     );

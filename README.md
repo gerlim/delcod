@@ -1,27 +1,45 @@
-# DelCod
+# DelCod Inventario
 
-Aplicativo Flutter para leitura e gestao de lotes de bobina com sincronizacao em tempo real.
+Aplicativo Flutter para auditoria de inventario de bobinas por codigo de barras.
+
+O fluxo principal e:
+
+1. importar no Web/Vercel uma planilha XLSX com o estoque das duas empresas;
+2. auditar pelo Android, usando camera ou digitacao manual do codigo de barras;
+3. marcar cada bobina como correta, incorreta ou nao encontrada no banco;
+4. exportar o resultado em XLSX separado por status.
 
 ## Stack
 
 - Flutter
 - Supabase
-- Drift
+- Drift para recursos locais legados
 - mobile_scanner
+- Vercel para hospedagem Web
 
-## Plataformas
+## Campos da planilha XLSX
 
-- Android: leitura por camera e update do APK por manifesto remoto
-- Web/Chrome: entrada manual
+A importacao aceita somente `.xlsx`. A planilha pode ter as duas empresas juntas, desde que cada linha informe a empresa.
 
-## Funcionalidades
+Colunas esperadas:
 
-- Lista global unica
-- Funcionamento offline com sincronizacao posterior
-- Aviso de duplicidade com confirmacao
-- Importacao em CSV/XLSX
-- Exportacao em PDF e Excel
-- Alocacao de armazem e empresa derivada
+- `Empresa`
+- `Codigo`
+- `Descricao`
+- `Codigo de Barras`
+- `Peso`
+- `Armazem`
+
+Os dados importados sao somente leitura. A auditoria grava um resultado separado, sem alterar a linha original do estoque.
+
+## Status da auditoria
+
+- `Correto`: a bobina foi encontrada e todas as informacoes conferem.
+- `Incorreto`: a bobina foi encontrada, mas algum campo diverge. O app registra os campos divergentes e uma observacao opcional.
+- `Nao encontrado`: o codigo de barras escaneado nao existe no estoque importado.
+- `Pendente`: item importado que ainda nao foi auditado.
+
+O mesmo codigo de barras nao pode ser auditado duas vezes na auditoria ativa.
 
 ## Variaveis por `--dart-define`
 
@@ -34,6 +52,20 @@ Nenhum segredo e versionado. Configure:
 
 Se `APP_UPDATE_MANIFEST_URL` nao for informado, o update automatico do APK fica desabilitado.
 
+## Banco de dados
+
+As tabelas de inventario ficam nas migrations do Supabase:
+
+```powershell
+supabase db push
+```
+
+A migration cria:
+
+- `inventory_audits`
+- `inventory_items`
+- `inventory_audit_results`
+
 ## Rodar localmente
 
 ```powershell
@@ -41,11 +73,13 @@ flutter pub get
 flutter run -d chrome --dart-define=SUPABASE_URL=SEU_URL --dart-define=SUPABASE_ANON_KEY=SUA_KEY --dart-define=APP_ENV=development
 ```
 
-## Build web
+## Build Web
 
 ```powershell
 flutter build web --dart-define=SUPABASE_URL=SEU_URL --dart-define=SUPABASE_ANON_KEY=SUA_KEY --dart-define=APP_ENV=production
 ```
+
+O Vercel deve executar o build acima e publicar `build/web`.
 
 ## Build Android
 
@@ -53,12 +87,29 @@ flutter build web --dart-define=SUPABASE_URL=SEU_URL --dart-define=SUPABASE_ANON
 flutter build apk --release --dart-define=SUPABASE_URL=SEU_URL --dart-define=SUPABASE_ANON_KEY=SUA_KEY --dart-define=APP_ENV=production --dart-define=APP_UPDATE_MANIFEST_URL=https://seu-host/version.json
 ```
 
+Para evitar que o Android trate cada APK como um app diferente, mantenha sempre:
+
+- o mesmo `applicationId`: `com.gerlim.delcod`;
+- a mesma chave de assinatura;
+- `versionCode` maior que o APK instalado.
+
+Crie `android/key.properties` no ambiente de build para assinar release:
+
+```properties
+storePassword=SENHA_DA_STORE
+keyPassword=SENHA_DA_KEY
+keyAlias=SEU_ALIAS
+storeFile=C:/caminho/para/upload-keystore.jks
+```
+
+Sem esse arquivo, o build local usa assinatura debug apenas como fallback de desenvolvimento.
+
 ## Preparar pacote de update Android
 
 Depois de gerar o APK release, rode:
 
 ```powershell
-dart run scripts/prepare_android_update.dart --base-url https://updates.seu-host/ --release-notes "Melhorias da versao"
+dart run scripts/prepare_android_update.dart --base-url https://updates.seu-host/ --release-notes "Atualizacao do inventario"
 ```
 
 Isso cria em `build/app_update/`:
@@ -68,50 +119,37 @@ Isso cria em `build/app_update/`:
 
 Os dois arquivos devem ser publicados no mesmo host e na mesma pasta.
 
+## Reduzir avisos de APK nocivo
+
+Para uso fora da Play Store, o Android pode exibir avisos por instalacao manual. O projeto foi ajustado para favorecer um APK consistente, mas alguns avisos dependem do canal de distribuicao.
+
+Recomendacoes:
+
+- assinar todas as versoes com a mesma chave release;
+- hospedar `version.json` e APK em HTTPS;
+- manter nome, pacote e versionamento consistentes;
+- evitar distribuir APK debug;
+- preferir Google Play Internal Testing quando quiser a menor friccao de instalacao.
+
 ## Publicar update no GitHub Pages
 
 Para usar um host gratuito no proprio GitHub:
 
 ```powershell
-dart run scripts/publish_android_update_to_github_pages.dart --release-notes "Melhorias da versao"
+dart run scripts/publish_android_update_to_github_pages.dart --release-notes "Atualizacao do inventario"
 ```
 
 O script:
 
-- gera `build/app_update/DelCod-<versionCode>.apk`
-- gera `build/app_update/version.json`
-- monta o site em `build/github_pages_site/`
-- publica tudo na branch `gh-pages`
+- gera `build/app_update/DelCod-<versionCode>.apk`;
+- gera `build/app_update/version.json`;
+- monta o site em `build/github_pages_site/`;
+- publica tudo na branch `gh-pages`.
 
 URL final esperada:
 
 - site: `https://gerlim.github.io/delcod/`
 - manifesto: `https://gerlim.github.io/delcod/updates/version.json`
-
-## Publicacao do update Android
-
-Para que o APK seja tratado como atualizacao pelo Android:
-
-- mantenha o mesmo `applicationId`
-- mantenha a mesma chave de assinatura
-- gere o pacote com `dart run scripts/prepare_android_update.dart`
-- ou publique direto no GitHub Pages com `dart run scripts/publish_android_update_to_github_pages.dart`
-- publique o APK com nome versionado, por exemplo `DelCod-2.apk`
-- publique ou atualize o `version.json`
-- use `apkUrl` com a mesma origem de `APP_UPDATE_MANIFEST_URL`
-- configure `APP_UPDATE_MANIFEST_URL` com a URL final do `version.json`
-
-Exemplo de `version.json`:
-
-```json
-{
-  "versionName": "1.0.1",
-  "versionCode": 2,
-  "apkUrl": "https://updates.delcod.app/DelCod-2.apk",
-  "releaseNotes": "Melhorias na leitura e importacao.",
-  "mandatory": false
-}
-```
 
 ## Licenca
 

@@ -27,13 +27,20 @@ Future<void> main(List<String> args) async {
       await File(path.join(projectRoot, 'pubspec.yaml')).readAsString(),
     ),
   );
-  final sourceApkPath =
-      options['source-apk'] as String? ??
-      path.join(projectRoot, 'build', 'app', 'outputs', 'apk', 'release', 'DelCod.apk');
+  final sourceApkPath = options['source-apk'] as String? ??
+      path.join(
+        projectRoot,
+        'build',
+        'app',
+        'outputs',
+        'flutter-apk',
+        'app-release.apk',
+      );
 
   final publicationDirectory = path.join(projectRoot, 'build', 'app_update');
   final siteDirectory = path.join(projectRoot, 'build', 'github_pages_site');
-  final updatesBaseUri = Uri.parse('https://$owner.github.io/$repository/updates/');
+  final updatesBaseUri =
+      Uri.parse('https://$owner.github.io/$repository/updates/');
 
   final publication = await AndroidUpdatePublicationBuilder().build(
     request: AndroidUpdatePublicationRequest(
@@ -73,7 +80,8 @@ Future<void> main(List<String> args) async {
   if (shouldPush) {
     stdout.writeln('Branch gh-pages atualizada com sucesso.');
   } else {
-    stdout.writeln('Branch gh-pages nao foi atualizada por causa de --no-push.');
+    stdout
+        .writeln('Branch gh-pages nao foi atualizada por causa de --no-push.');
   }
 }
 
@@ -262,7 +270,8 @@ Future<void> _runGit(String workingDirectory, List<String> arguments) async {
   }
 }
 
-Future<bool> _gitSucceeds(String workingDirectory, List<String> arguments) async {
+Future<bool> _gitSucceeds(
+    String workingDirectory, List<String> arguments) async {
   final result = await Process.run(
     'git',
     arguments,

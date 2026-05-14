@@ -6,7 +6,7 @@ void main() {
   test(
     'inventory item normalizes barcode for lookup without mutating source fields',
     () {
-      final item = InventoryItem(
+      const item = InventoryItem(
         id: 'item-1',
         auditId: 'audit-1',
         companyName: 'Bora Embalagens',
@@ -23,7 +23,8 @@ void main() {
     },
   );
 
-  test('incorrect audit result stores discrepancy fields and optional note', () {
+  test('incorrect audit result stores discrepancy fields and optional note',
+      () {
     final result = InventoryAuditResult.incorrect(
       id: 'result-1',
       auditId: 'audit-1',

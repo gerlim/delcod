@@ -204,9 +204,8 @@ class InventoryAuditFlowState {
     this.errorMessage,
   });
 
-  const InventoryAuditFlowState.ready({InventoryAudit? activeAudit})
+  const InventoryAuditFlowState.ready({this.activeAudit})
       : status = InventoryAuditFlowStatus.ready,
-        activeAudit = activeAudit,
         scannedBarcode = null,
         item = null,
         existingResult = null,

@@ -6,11 +6,18 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('imports xlsx inventory with mixed companies', () {
-    final service = InventoryImportService();
+    const service = InventoryImportService();
     final result = service.parseXlsx(
       filename: 'inventario.xlsx',
       bytes: _buildWorkbook([
-        ['Empresa', 'Codigo', 'Descricao', 'Codigo de Barras', 'Peso', 'Armazem'],
+        [
+          'Empresa',
+          'Codigo',
+          'Descricao',
+          'Codigo de Barras',
+          'Peso',
+          'Armazem'
+        ],
         [
           'Bora Embalagens',
           'BOB-001',
@@ -39,11 +46,18 @@ void main() {
   });
 
   test('rejects duplicate barcodes in the same import', () {
-    final service = InventoryImportService();
+    const service = InventoryImportService();
     final result = service.parseXlsx(
       filename: 'inventario.xlsx',
       bytes: _buildWorkbook([
-        ['Empresa', 'Codigo', 'Descricao', 'Codigo de Barras', 'Peso', 'Armazem'],
+        [
+          'Empresa',
+          'Codigo',
+          'Descricao',
+          'Codigo de Barras',
+          'Peso',
+          'Armazem'
+        ],
         ['Bora Embalagens', 'BOB-001', 'Papel kraft', '789001', '482,5', '05'],
         ['ABN Embalagens', 'BOB-002', 'Papel branco', '789001', '510', 'GLR'],
       ]),

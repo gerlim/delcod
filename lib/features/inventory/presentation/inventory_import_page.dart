@@ -5,6 +5,7 @@ import 'package:barcode_app/features/import/data/reading_import_picker.dart';
 import 'package:barcode_app/features/inventory/application/inventory_import_controller.dart';
 import 'package:barcode_app/features/inventory/application/inventory_export_builder.dart';
 import 'package:barcode_app/features/inventory/data/inventory_repository.dart';
+import 'package:barcode_app/features/inventory/domain/inventory_import_models.dart';
 import 'package:barcode_app/features/inventory/export/inventory_audit_xlsx_export_service.dart';
 import 'package:barcode_app/features/inventory/presentation/audit_status_summary.dart';
 import 'package:flutter/material.dart';
@@ -121,7 +122,7 @@ class InventoryImportPage extends ConsumerWidget {
   }
 
   Future<void> _pickAndImport(WidgetRef ref) async {
-    final picked = await ref.read(readingImportPickerProvider).pickFile();
+    final picked = await ref.read(inventoryImportPickerProvider).pickFile();
     if (picked == null) {
       return;
     }
@@ -152,7 +153,7 @@ class InventoryImportPage extends ConsumerWidget {
 class _ImportErrors extends StatelessWidget {
   const _ImportErrors({required this.errors});
 
-  final List<dynamic> errors;
+  final List<InventoryImportError> errors;
 
   @override
   Widget build(BuildContext context) {
@@ -173,7 +174,7 @@ class _ImportErrors extends StatelessWidget {
               padding: const EdgeInsets.only(top: 6),
               child: Text(
                 error.rowNumber == null
-                    ? error.message as String
+                    ? error.message
                     : 'Linha ${error.rowNumber}: ${error.message}',
               ),
             ),

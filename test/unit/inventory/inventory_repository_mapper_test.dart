@@ -28,7 +28,7 @@ void main() {
   });
 
   test('InventoryItemMapper roundtrips imported item rows', () {
-    final item = InventoryItem(
+    const item = InventoryItem(
       id: 'item-1',
       auditId: 'audit-1',
       companyName: 'Bora Embalagens',
@@ -38,7 +38,7 @@ void main() {
       weight: '482,5',
       warehouse: '05',
       rowNumber: 2,
-      rawPayload: const {'Empresa': 'Bora Embalagens'},
+      rawPayload: {'Empresa': 'Bora Embalagens'},
     );
 
     final row = InventoryItemMapper.toJson(item);
@@ -67,8 +67,10 @@ void main() {
     final hydrated = InventoryAuditResultMapper.fromJson(row);
 
     expect(hydrated.status, InventoryAuditResultStatus.incorrect);
-    expect(hydrated.discrepancyFields, contains(InventoryDiscrepancyField.weight));
-    expect(hydrated.discrepancyFields, contains(InventoryDiscrepancyField.warehouse));
+    expect(
+        hydrated.discrepancyFields, contains(InventoryDiscrepancyField.weight));
+    expect(hydrated.discrepancyFields,
+        contains(InventoryDiscrepancyField.warehouse));
     expect(hydrated.note, 'Armazem fisico diferente');
   });
 }

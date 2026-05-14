@@ -60,7 +60,7 @@ class _InventoryScanPageState extends ConsumerState<InventoryScanPage> {
           data: (state) => ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              SectionHeader(
+              const SectionHeader(
                 title: 'Auditar bobina',
                 subtitle:
                     'Escaneie ou digite o codigo de barras. Os dados importados nao podem ser editados.',
@@ -150,7 +150,7 @@ class _InventoryScanPageState extends ConsumerState<InventoryScanPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              StatusChip(
+              const StatusChip(
                 label: 'Nao esta no banco',
                 color: AppColors.alertAmber,
                 icon: Icons.warning_amber_outlined,
@@ -192,7 +192,9 @@ class _InventoryScanPageState extends ConsumerState<InventoryScanPage> {
     setState(() => _showDiscrepancyForm = false);
     widget.onLookup?.call(trimmed);
     if (widget.state == null) {
-      ref.read(inventoryAuditControllerProvider.notifier).lookupBarcode(trimmed);
+      ref
+          .read(inventoryAuditControllerProvider.notifier)
+          .lookupBarcode(trimmed);
     }
   }
 

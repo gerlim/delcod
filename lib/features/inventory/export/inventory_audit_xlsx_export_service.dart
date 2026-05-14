@@ -2,7 +2,7 @@ import 'dart:typed_data';
 
 import 'package:barcode_app/features/inventory/application/inventory_export_builder.dart';
 import 'package:barcode_app/features/inventory/data/inventory_audit_result_mapper.dart';
-import 'package:barcode_app/features/inventory/presentation/discrepancy_form.dart';
+import 'package:barcode_app/features/inventory/domain/inventory_audit_result.dart';
 import 'package:excel/excel.dart';
 
 export 'package:barcode_app/features/inventory/application/inventory_export_builder.dart'
@@ -58,9 +58,7 @@ class InventoryAuditXlsxExportService {
           result?.status.remoteValue ?? 'pending',
           result == null
               ? ''
-              : result.discrepancyFields
-                  .map((field) => field.label)
-                  .join(', '),
+              : result.discrepancyFields.map((field) => field.label).join(', '),
           result?.note ?? '',
           result?.scannedAt.toIso8601String() ?? '',
         ].map(TextCellValue.new).toList(growable: false),

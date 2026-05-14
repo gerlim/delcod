@@ -13,6 +13,19 @@ enum InventoryDiscrepancyField {
   warehouse,
 }
 
+extension InventoryDiscrepancyFieldLabel on InventoryDiscrepancyField {
+  String get label {
+    return switch (this) {
+      InventoryDiscrepancyField.company => 'Empresa',
+      InventoryDiscrepancyField.bobbinCode => 'Codigo',
+      InventoryDiscrepancyField.description => 'Descricao',
+      InventoryDiscrepancyField.barcode => 'Codigo de barras',
+      InventoryDiscrepancyField.weight => 'Peso',
+      InventoryDiscrepancyField.warehouse => 'Armazem',
+    };
+  }
+}
+
 class InventoryAuditResult {
   const InventoryAuditResult({
     required this.id,
