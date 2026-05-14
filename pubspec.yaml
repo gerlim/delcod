@@ -2,7 +2,7 @@ name: barcode_app
 description: "DelCod: auditoria de inventario de bobinas por codigo de barras."
 publish_to: 'none'
 
-version: 1.1.1+7
+version: 1.1.2+8
 
 environment:
   sdk: ^3.5.4
