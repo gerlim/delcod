@@ -56,7 +56,7 @@ class InventoryImportService {
     final header = rows.first;
     final columns = _resolveColumns(header);
     final errors = <InventoryImportError>[];
-    for (final requiredColumn in InventoryImportColumn.values) {
+    for (final requiredColumn in InventoryImportColumn.requiredColumns) {
       if (!columns.containsKey(requiredColumn)) {
         errors.add(
           InventoryImportError(
@@ -81,7 +81,8 @@ class InventoryImportService {
       final row = rows[rowIndex];
       final rowNumber = rowIndex + 1;
       final barcode = _value(row, columns[InventoryImportColumn.barcode]!);
-      final companyName = _value(row, columns[InventoryImportColumn.company]!);
+      final warehouse = _value(row, columns[InventoryImportColumn.warehouse]!);
+      final companyName = _resolveCompanyName(row, columns, warehouse);
 
       if (barcode.isEmpty && companyName.isEmpty) {
         continue;
@@ -100,7 +101,7 @@ class InventoryImportService {
       if (companyName.isEmpty) {
         errors.add(
           InventoryImportError(
-            message: 'Empresa obrigatoria.',
+            message: 'Empresa obrigatoria ou armazem sem mapeamento conhecido.',
             rowNumber: rowNumber,
           ),
         );
@@ -128,7 +129,7 @@ class InventoryImportService {
               _value(row, columns[InventoryImportColumn.description]!),
           barcode: barcode,
           weight: _value(row, columns[InventoryImportColumn.weight]!),
-          warehouse: _value(row, columns[InventoryImportColumn.warehouse]!),
+          warehouse: warehouse,
           rowNumber: rowNumber,
           rawPayload: _rawPayload(header, row),
         ),
@@ -171,6 +172,29 @@ class InventoryImportService {
       return '';
     }
     return row[index].trim();
+  }
+
+  String _resolveCompanyName(
+    List<String> row,
+    Map<InventoryImportColumn, int> columns,
+    String warehouse,
+  ) {
+    final companyColumn = columns[InventoryImportColumn.company];
+    if (companyColumn != null) {
+      final companyName = _value(row, companyColumn);
+      if (companyName.isNotEmpty) {
+        return companyName;
+      }
+    }
+    return _deriveCompanyNameFromWarehouse(warehouse) ?? '';
+  }
+
+  String? _deriveCompanyNameFromWarehouse(String warehouse) {
+    return switch (warehouse.trim().toUpperCase()) {
+      '05' || 'PPI' => 'Bora Embalagens',
+      '04' || 'GLR' => 'ABN Embalagens',
+      _ => null,
+    };
   }
 
   Map<String, String> _rawPayload(List<String> header, List<String> row) {
@@ -241,23 +265,39 @@ class InventoryImportService {
 enum InventoryImportColumn {
   company(
     label: 'empresa',
-    aliases: {'empresa', 'company'},
+    aliases: {'empresa', 'company', 'companhia'},
   ),
   bobbinCode(
     label: 'codigo',
-    aliases: {'codigo', 'codigo da bobina', 'bobbin code'},
+    aliases: {'codigo', 'codigo da bobina', 'bobbin code', 'produto'},
   ),
   description(
     label: 'descricao',
-    aliases: {'descricao', 'descricao do item', 'item description'},
+    aliases: {
+      'descricao',
+      'descricao do item',
+      'item description',
+      'produto descricao'
+    },
   ),
   barcode(
     label: 'codigo de barras',
-    aliases: {'codigo de barras', 'barcode', 'ean'},
+    aliases: {
+      'codigo de barras',
+      'barcode',
+      'ean',
+      'lote bobina',
+      'lote de bobina',
+    },
   ),
   weight(
     label: 'peso',
-    aliases: {'peso', 'weight'},
+    aliases: {
+      'peso',
+      'weight',
+      'saldo bobina',
+      'saldo da bobina',
+    },
   ),
   warehouse(
     label: 'armazem',
@@ -271,4 +311,12 @@ enum InventoryImportColumn {
 
   final String label;
   final Set<String> aliases;
+
+  static const requiredColumns = <InventoryImportColumn>{
+    bobbinCode,
+    description,
+    barcode,
+    weight,
+    warehouse,
+  };
 }

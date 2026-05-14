@@ -66,6 +66,69 @@ void main() {
     expect(result.isValid, isFalse);
     expect(result.errors.single.message, contains('789001'));
   });
+
+  test('imports real Protheus saldo layout deriving company by warehouse', () {
+    const service = InventoryImportService();
+    final result = service.parseXlsx(
+      filename: 'saldos_exportados.xlsx',
+      bytes: _buildWorkbook([
+        [
+          'Produto',
+          'Descrição',
+          'Un',
+          'Qtde Original',
+          'Saldo Bobina',
+          'Saldo Proc.',
+          'Armazém',
+          'Lote Bobina',
+          'Lote Protheus',
+          'Status',
+        ],
+        [
+          '2059002',
+          'CARTAO NILS 275G X 350MM P25CM',
+          'KG',
+          '378.3',
+          '378.3',
+          '0.0',
+          '05',
+          'CORTE2701260117902',
+          'ETH0000020',
+          'LI',
+        ],
+        [
+          '2059003',
+          'CARTAO TESTE',
+          'KG',
+          '200',
+          '199.5',
+          '0.0',
+          'GLR',
+          'RN010825B1205900301',
+          'PPI5513022',
+          'LI',
+        ],
+      ]),
+    );
+
+    expect(result.isValid, isTrue);
+    expect(result.items, hasLength(2));
+
+    final boraItem = result.items.first;
+    expect(boraItem.companyName, 'Bora Embalagens');
+    expect(boraItem.bobbinCode, '2059002');
+    expect(boraItem.itemDescription, 'CARTAO NILS 275G X 350MM P25CM');
+    expect(boraItem.weight, '378.3');
+    expect(boraItem.warehouse, '05');
+    expect(boraItem.barcode, 'CORTE2701260117902');
+
+    final abnItem = result.items.last;
+    expect(abnItem.companyName, 'ABN Embalagens');
+    expect(abnItem.bobbinCode, '2059003');
+    expect(abnItem.weight, '199.5');
+    expect(abnItem.warehouse, 'GLR');
+    expect(abnItem.barcode, 'RN010825B1205900301');
+  });
 }
 
 Uint8List _buildWorkbook(List<List<String>> rows) {

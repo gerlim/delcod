@@ -21,7 +21,7 @@ O fluxo principal e:
 
 A importacao aceita somente `.xlsx`. A planilha pode ter as duas empresas juntas, desde que cada linha informe a empresa.
 
-Colunas esperadas:
+Colunas esperadas no layout padrao:
 
 - `Empresa`
 - `Codigo`
@@ -29,6 +29,16 @@ Colunas esperadas:
 - `Codigo de Barras`
 - `Peso`
 - `Armazem`
+
+O importador tambem aceita o layout de saldos do Protheus:
+
+- `Produto`: codigo da bobina
+- `Descrição`: descricao do item
+- `Lote Bobina`: codigo de barras lido no celular
+- `Saldo Bobina`: peso/saldo da bobina
+- `Armazém`: armazem fisico
+
+Quando a planilha nao tiver coluna `Empresa`, o app deriva a empresa pelo armazem: `05` e `PPI` viram Bora Embalagens; `04` e `GLR` viram ABN Embalagens.
 
 Os dados importados sao somente leitura. A auditoria grava um resultado separado, sem alterar a linha original do estoque.
 
