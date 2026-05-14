@@ -1,12 +1,23 @@
+import 'package:barcode_app/data/remote/supabase/supabase_client_provider.dart';
+import 'package:barcode_app/features/inventory/data/inventory_audit_mapper.dart';
+import 'package:barcode_app/features/inventory/data/inventory_audit_result_mapper.dart';
+import 'package:barcode_app/features/inventory/data/inventory_item_mapper.dart';
+import 'package:barcode_app/features/inventory/data/inventory_remote_contract.dart';
 import 'package:barcode_app/features/inventory/domain/inventory_audit.dart';
 import 'package:barcode_app/features/inventory/domain/inventory_audit_result.dart';
 import 'package:barcode_app/features/inventory/domain/inventory_import_models.dart';
 import 'package:barcode_app/features/inventory/domain/inventory_item.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase/supabase.dart';
 import 'package:uuid/uuid.dart';
 
 final inventoryRepositoryProvider = Provider<InventoryRepository>((ref) {
-  return InventoryRepository(dataSource: InMemoryInventoryRemoteDataSource());
+  final supabase = SupabaseClientRegistry.tryRead();
+  return InventoryRepository(
+    dataSource: supabase == null
+        ? InMemoryInventoryRemoteDataSource()
+        : SupabaseInventoryRemoteDataSource(supabase),
+  );
 });
 
 class InventoryRepository {
@@ -215,6 +226,125 @@ class InMemoryInventoryRemoteDataSource implements InventoryRemoteDataSource {
   @override
   Future<void> insertResult(InventoryAuditResult result) async {
     _results[result.id] = result;
+  }
+}
+
+class SupabaseInventoryRemoteDataSource implements InventoryRemoteDataSource {
+  SupabaseInventoryRemoteDataSource(this._client);
+
+  final SupabaseClient _client;
+
+  @override
+  Future<void> archiveAudit(String auditId) async {
+    await _client
+        .from(InventoryAuditsRemoteContract.tableName)
+        .update({
+          InventoryAuditsRemoteContract.status:
+              InventoryAuditStatus.archived.remoteValue,
+        })
+        .eq(InventoryAuditsRemoteContract.id, auditId);
+  }
+
+  @override
+  Future<InventoryAudit?> fetchActiveAudit() async {
+    final row = await _client
+        .from(InventoryAuditsRemoteContract.tableName)
+        .select()
+        .eq(
+          InventoryAuditsRemoteContract.status,
+          InventoryAuditStatus.active.remoteValue,
+        )
+        .order(InventoryAuditsRemoteContract.importedAt, ascending: false)
+        .maybeSingle();
+    if (row == null) {
+      return null;
+    }
+    return InventoryAuditMapper.fromJson(Map<String, dynamic>.from(row));
+  }
+
+  @override
+  Future<List<InventoryItem>> fetchItems(String auditId) async {
+    final rows = await _client
+        .from(InventoryItemsRemoteContract.tableName)
+        .select()
+        .eq(InventoryItemsRemoteContract.auditId, auditId)
+        .order(InventoryItemsRemoteContract.rowNumber);
+    return rows
+        .map<InventoryItem>(
+          (row) => InventoryItemMapper.fromJson(Map<String, dynamic>.from(row)),
+        )
+        .toList(growable: false);
+  }
+
+  @override
+  Future<List<InventoryAuditResult>> fetchResults(String auditId) async {
+    final rows = await _client
+        .from(InventoryAuditResultsRemoteContract.tableName)
+        .select()
+        .eq(InventoryAuditResultsRemoteContract.auditId, auditId)
+        .order(InventoryAuditResultsRemoteContract.scannedAt);
+    return rows
+        .map<InventoryAuditResult>(
+          (row) => InventoryAuditResultMapper.fromJson(
+            Map<String, dynamic>.from(row),
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  @override
+  Future<InventoryItem?> findItemByBarcode(String auditId, String barcode) async {
+    final row = await _client
+        .from(InventoryItemsRemoteContract.tableName)
+        .select()
+        .eq(InventoryItemsRemoteContract.auditId, auditId)
+        .eq(InventoryItemsRemoteContract.barcode, barcode.trim())
+        .maybeSingle();
+    if (row == null) {
+      return null;
+    }
+    return InventoryItemMapper.fromJson(Map<String, dynamic>.from(row));
+  }
+
+  @override
+  Future<InventoryAuditResult?> findResultByBarcode(
+    String auditId,
+    String barcode,
+  ) async {
+    final row = await _client
+        .from(InventoryAuditResultsRemoteContract.tableName)
+        .select()
+        .eq(InventoryAuditResultsRemoteContract.auditId, auditId)
+        .eq(InventoryAuditResultsRemoteContract.scannedBarcode, barcode.trim())
+        .maybeSingle();
+    if (row == null) {
+      return null;
+    }
+    return InventoryAuditResultMapper.fromJson(Map<String, dynamic>.from(row));
+  }
+
+  @override
+  Future<void> insertAudit(InventoryAudit audit) async {
+    await _client
+        .from(InventoryAuditsRemoteContract.tableName)
+        .insert(InventoryAuditMapper.toJson(audit));
+  }
+
+  @override
+  Future<void> insertItems(List<InventoryItem> items) async {
+    if (items.isEmpty) {
+      return;
+    }
+    await _client.from(InventoryItemsRemoteContract.tableName).insert(
+          items.map(InventoryItemMapper.toJson).toList(growable: false),
+        );
+  }
+
+  @override
+  Future<void> insertResult(InventoryAuditResult result) async {
+    await _client
+        .from(InventoryAuditResultsRemoteContract.tableName)
+        .insert(InventoryAuditResultMapper.toJson(result));
   }
 }
 
