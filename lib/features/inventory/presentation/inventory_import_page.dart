@@ -1,6 +1,9 @@
 import 'package:barcode_app/app/shell/shell_primitives.dart';
 import 'package:barcode_app/app/theme/app_colors.dart';
+import 'package:barcode_app/core/platform/platform_capabilities.dart';
 import 'package:barcode_app/core/platform/file_download.dart';
+import 'package:barcode_app/features/app_update/application/app_update_controller.dart';
+import 'package:barcode_app/features/app_update/presentation/app_update_banner.dart';
 import 'package:barcode_app/features/import/data/reading_import_picker.dart';
 import 'package:barcode_app/features/inventory/application/inventory_import_controller.dart';
 import 'package:barcode_app/features/inventory/application/inventory_export_builder.dart';
@@ -27,6 +30,10 @@ class InventoryImportPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final InventoryImportState resolvedState =
         state ?? ref.watch(inventoryImportControllerProvider);
+    final supportsUpdates =
+        ref.watch(platformCapabilitiesProvider).supportsCameraScanning;
+    final appUpdateState =
+        supportsUpdates ? ref.watch(appUpdateControllerProvider) : null;
 
     return Scaffold(
       body: SafeArea(
@@ -54,6 +61,21 @@ class InventoryImportPage extends ConsumerWidget {
                 ),
               ],
             ),
+            if (appUpdateState?.shouldShowBanner ?? false) ...[
+              const SizedBox(height: 16),
+              AppUpdateBanner(
+                state: appUpdateState!,
+                onUpdateNow: () => ref
+                    .read(appUpdateControllerProvider.notifier)
+                    .startUpdate(),
+                onDismiss: () => ref
+                    .read(appUpdateControllerProvider.notifier)
+                    .dismissForSession(),
+                onRetry: () => ref
+                    .read(appUpdateControllerProvider.notifier)
+                    .startUpdate(),
+              ),
+            ],
             const SizedBox(height: 24),
             SectionCard(
               child: Column(

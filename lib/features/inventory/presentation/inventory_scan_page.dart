@@ -1,6 +1,8 @@
 import 'package:barcode_app/app/shell/shell_primitives.dart';
 import 'package:barcode_app/app/theme/app_colors.dart';
 import 'package:barcode_app/core/platform/platform_capabilities.dart';
+import 'package:barcode_app/features/app_update/application/app_update_controller.dart';
+import 'package:barcode_app/features/app_update/presentation/app_update_banner.dart';
 import 'package:barcode_app/features/inventory/application/inventory_audit_controller.dart';
 import 'package:barcode_app/features/inventory/domain/inventory_audit_result.dart';
 import 'package:barcode_app/features/inventory/presentation/discrepancy_form.dart';
@@ -49,6 +51,8 @@ class _InventoryScanPageState extends ConsumerState<InventoryScanPage> {
     final supportsCameraScanning = hasInjectedState
         ? false
         : ref.watch(platformCapabilitiesProvider).supportsCameraScanning;
+    final appUpdateState =
+        hasInjectedState ? null : ref.watch(appUpdateControllerProvider);
 
     return Scaffold(
       body: SafeArea(
@@ -65,6 +69,21 @@ class _InventoryScanPageState extends ConsumerState<InventoryScanPage> {
                 subtitle:
                     'Escaneie ou digite o codigo de barras. Os dados importados nao podem ser editados.',
               ),
+              if (appUpdateState?.shouldShowBanner ?? false) ...[
+                const SizedBox(height: 16),
+                AppUpdateBanner(
+                  state: appUpdateState!,
+                  onUpdateNow: () => ref
+                      .read(appUpdateControllerProvider.notifier)
+                      .startUpdate(),
+                  onDismiss: () => ref
+                      .read(appUpdateControllerProvider.notifier)
+                      .dismissForSession(),
+                  onRetry: () => ref
+                      .read(appUpdateControllerProvider.notifier)
+                      .startUpdate(),
+                ),
+              ],
               const SizedBox(height: 16),
               if (supportsCameraScanning)
                 SectionCard(
