@@ -1,4 +1,4 @@
-import 'package:barcode_app/features/readings/presentation/readings_page.dart';
+import 'package:barcode_app/features/inventory/presentation/inventory_home_page.dart';
 import 'package:go_router/go_router.dart';
 
 GoRouter buildRouter({
@@ -9,7 +9,7 @@ GoRouter buildRouter({
     routes: [
       GoRoute(
         path: '/',
-        builder: (_, __) => const ReadingsPage(),
+        builder: (_, __) => const InventoryHomePage(),
       ),
     ],
   );
