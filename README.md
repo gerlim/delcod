@@ -131,6 +131,16 @@ Recomendacoes:
 - evitar distribuir APK debug;
 - preferir Google Play Internal Testing quando quiser a menor friccao de instalacao.
 
+### Transicao para assinatura release
+
+O canal automatico atual ainda aponta para o APK `1.1.0+6`, assinado com a mesma chave debug das instalacoes antigas para manter compatibilidade de update.
+
+A primeira build com chave release fixa e `1.1.1+7` fica publicada separadamente para reinstalacao manual:
+
+- `https://gerlim.github.io/delcod/manual/DelCod-release-1.1.1-7.apk`
+
+Quem estiver usando a build antiga precisa desinstalar o app uma vez e instalar essa build release. Depois disso, proximas atualizacoes podem usar a mesma chave release no canal automatico.
+
 ## Publicar update no GitHub Pages
 
 Para usar um host gratuito no proprio GitHub:
