@@ -143,7 +143,19 @@ class InventoryImportPage extends ConsumerWidget {
             ),
             if (resolvedState.errors.isNotEmpty) ...[
               const SizedBox(height: 16),
-              _ImportErrors(errors: resolvedState.errors),
+              _ImportMessages(
+                title: 'Erros na importacao',
+                color: AppColors.faultRed,
+                messages: resolvedState.errors,
+              ),
+            ],
+            if (resolvedState.warnings.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              _ImportMessages(
+                title: 'Avisos na importacao',
+                color: AppColors.alertAmber,
+                messages: resolvedState.warnings,
+              ),
             ],
             if (canUseWebMaintenance &&
                 resolvedState.importedItems.isNotEmpty) ...[
@@ -232,10 +244,16 @@ class InventoryImportPage extends ConsumerWidget {
   }
 }
 
-class _ImportErrors extends StatelessWidget {
-  const _ImportErrors({required this.errors});
+class _ImportMessages extends StatelessWidget {
+  const _ImportMessages({
+    required this.title,
+    required this.color,
+    required this.messages,
+  });
 
-  final List<InventoryImportError> errors;
+  final String title;
+  final Color color;
+  final List<InventoryImportError> messages;
 
   @override
   Widget build(BuildContext context) {
@@ -244,14 +262,14 @@ class _ImportErrors extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Erros na importacao',
+            title,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: AppColors.faultRed,
+                  color: color,
                   fontWeight: FontWeight.w700,
                 ),
           ),
           const SizedBox(height: 8),
-          ...errors.map(
+          ...messages.map(
             (error) => Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Text(

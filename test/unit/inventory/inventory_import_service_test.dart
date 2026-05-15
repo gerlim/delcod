@@ -67,6 +67,7 @@ void main() {
     expect(result.isValid, isTrue);
     expect(result.items, hasLength(1));
     expect(result.items.single.companyName, 'Bora Embalagens');
+    expect(result.warnings.single.message, contains('789001'));
   });
 
   test('imports real Protheus saldo layout deriving company by warehouse', () {
@@ -225,6 +226,27 @@ void main() {
     expect(result.items.single.weight, '352.0');
     expect(result.items.single.warehouse, 'GTR DEL');
     expect(result.items.single.barcode, 'R0001760010001200706901');
+  });
+
+  test('maps GTR ABN warehouse to ABN Embalagens', () {
+    const service = InventoryImportService();
+    final result = service.parseXlsx(
+      filename: 'GInventario.xlsx',
+      bytes: _buildWorkbook([
+        ['ITEM', 'DESCRICAO', 'qtd_atual', 'Armazem', 'LOTE'],
+        [
+          '2059324',
+          'CARTAO TESTE',
+          '120.0',
+          'GTR ABN',
+          '28042600201205932411',
+        ],
+      ]),
+    );
+
+    expect(result.isValid, isTrue);
+    expect(result.items.single.companyName, 'ABN Embalagens');
+    expect(result.items.single.warehouse, 'GTR ABN');
   });
 }
 

@@ -149,6 +149,7 @@ void main() {
 
     expect(state.importedCount, 1);
     expect(state.errors, isEmpty);
+    expect(state.warnings, isNotEmpty);
     expect(await repository.fetchActiveAudit(), isNotNull);
   });
 }

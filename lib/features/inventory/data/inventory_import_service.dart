@@ -74,6 +74,7 @@ class InventoryImportService {
     }
 
     final items = <InventoryItemDraft>[];
+    final warnings = <InventoryImportError>[];
     final seenBarcodes = <String, int>{};
     for (var rowIndex = 1; rowIndex < rows.length; rowIndex++) {
       final row = rows[rowIndex];
@@ -108,6 +109,13 @@ class InventoryImportService {
 
       final duplicateFirstRow = seenBarcodes[barcode];
       if (duplicateFirstRow != null) {
+        warnings.add(
+          InventoryImportError(
+            message:
+                'Codigo de barras duplicado: $barcode nas linhas $duplicateFirstRow e $rowNumber. Linha mantida na planilha, mas nao importada como nova bobina.',
+            rowNumber: rowNumber,
+          ),
+        );
         continue;
       }
       seenBarcodes[barcode] = rowNumber;
@@ -131,6 +139,7 @@ class InventoryImportService {
       filename: filename,
       items: items,
       errors: errors,
+      warnings: warnings,
     );
   }
 
@@ -311,7 +320,7 @@ class InventoryImportService {
   String? _deriveCompanyNameFromWarehouse(String warehouse) {
     return switch (warehouse.trim().toUpperCase()) {
       '05' || 'PPI' => 'Bora Embalagens',
-      '04' || 'GLR' => 'ABN Embalagens',
+      '04' || 'GLR' || 'GTR ABN' => 'ABN Embalagens',
       _ => null,
     };
   }

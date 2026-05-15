@@ -60,6 +60,34 @@ void main() {
     expect(find.textContaining('Codigo de barras duplicado'), findsOneWidget);
   });
 
+  testWidgets('shows import warnings without blocking summary', (tester) async {
+    await tester.pumpWidget(
+      const ProviderScope(
+        child: MaterialApp(
+          home: InventoryImportPage(
+            state: InventoryImportState(
+              filename: 'inventario.xlsx',
+              isLoading: false,
+              importedCount: 1,
+              activeAuditId: 'audit-1',
+              errors: [],
+              warnings: [
+                InventoryImportError(
+                  message: 'Codigo de barras duplicado: 789001',
+                  rowNumber: 3,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Avisos na importacao'), findsOneWidget);
+    expect(find.textContaining('Codigo de barras duplicado'), findsOneWidget);
+    expect(find.text('Auditoria ativa'), findsOneWidget);
+  });
+
   testWidgets('shows update banner in inventory UI on Android', (tester) async {
     await tester.pumpWidget(
       ProviderScope(

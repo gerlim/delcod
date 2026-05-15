@@ -25,11 +25,13 @@ class InventoryImportValidation {
     required this.filename,
     required this.items,
     required this.errors,
+    this.warnings = const <InventoryImportError>[],
   });
 
   final String filename;
   final List<InventoryItemDraft> items;
   final List<InventoryImportError> errors;
+  final List<InventoryImportError> warnings;
 
   bool get isValid => errors.isEmpty;
 }

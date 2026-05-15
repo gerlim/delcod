@@ -119,6 +119,7 @@ class InventoryImportController {
         importedCount: 0,
         activeAuditId: null,
         errors: validation.errors,
+        warnings: validation.warnings,
       );
     }
 
@@ -138,6 +139,7 @@ class InventoryImportController {
       notFoundCount: 0,
       pendingCount: validation.items.length,
       errors: const <InventoryImportError>[],
+      warnings: validation.warnings,
     );
   }
 
@@ -164,6 +166,7 @@ class InventoryImportState {
     this.pendingCount = 0,
     this.importedItems = const [],
     required this.errors,
+    this.warnings = const <InventoryImportError>[],
   });
 
   const InventoryImportState.idle()
@@ -176,7 +179,8 @@ class InventoryImportState {
         notFoundCount = 0,
         pendingCount = 0,
         importedItems = const [],
-        errors = const <InventoryImportError>[];
+        errors = const <InventoryImportError>[],
+        warnings = const <InventoryImportError>[];
 
   factory InventoryImportState.fromSnapshot({
     required String activeAuditId,
@@ -196,6 +200,7 @@ class InventoryImportState {
       pendingCount: export.pending.length,
       importedItems: snapshot.items,
       errors: const <InventoryImportError>[],
+      warnings: const <InventoryImportError>[],
     );
   }
 
@@ -209,6 +214,7 @@ class InventoryImportState {
   final int pendingCount;
   final List<InventoryItem> importedItems;
   final List<InventoryImportError> errors;
+  final List<InventoryImportError> warnings;
 
   bool get hasErrors => errors.isNotEmpty;
 
@@ -223,6 +229,7 @@ class InventoryImportState {
     int? pendingCount,
     List<InventoryItem>? importedItems,
     List<InventoryImportError>? errors,
+    List<InventoryImportError>? warnings,
     bool clearErrors = false,
   }) {
     return InventoryImportState(
@@ -237,6 +244,9 @@ class InventoryImportState {
       importedItems: importedItems ?? this.importedItems,
       errors:
           clearErrors ? const <InventoryImportError>[] : errors ?? this.errors,
+      warnings: clearErrors
+          ? const <InventoryImportError>[]
+          : warnings ?? this.warnings,
     );
   }
 }
