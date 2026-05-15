@@ -94,6 +94,23 @@ void main() {
     expect(nextState.status, InventoryAuditFlowStatus.found);
     expect(nextState.item?.barcode, '789002');
   });
+
+  test('refreshActiveAudit clears open state after active audit is archived',
+      () async {
+    final repository = InventoryRepository(
+      dataSource: InMemoryInventoryRemoteDataSource(),
+    );
+    await _seedAudit(repository);
+    final controller = InventoryAuditController(repository: repository);
+    final foundState = await controller.lookupBarcode('789001');
+
+    await repository.archiveActiveAudit();
+    final refreshedState = await controller.refreshActiveAudit();
+
+    expect(foundState.status, InventoryAuditFlowStatus.found);
+    expect(refreshedState.status, InventoryAuditFlowStatus.noActiveAudit);
+    expect(refreshedState.activeAudit, isNull);
+  });
 }
 
 Future<dynamic> _seedAudit(InventoryRepository repository) {

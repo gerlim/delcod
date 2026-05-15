@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:barcode_app/features/inventory/application/inventory_export_builder.dart';
 import 'package:barcode_app/features/inventory/data/inventory_import_service.dart';
 import 'package:barcode_app/features/inventory/data/inventory_repository.dart';
+import 'package:barcode_app/features/inventory/domain/inventory_audit.dart';
 import 'package:barcode_app/features/inventory/domain/inventory_import_models.dart';
 import 'package:barcode_app/features/inventory/domain/inventory_item.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,6 +17,8 @@ final inventoryImportControllerProvider =
 class InventoryImportNotifier extends Notifier<InventoryImportState> {
   late final InventoryImportController _controller;
   bool _loadScheduled = false;
+  StreamSubscription<InventoryAudit?>? _activeAuditSubscription;
+  Timer? _activeAuditPollingTimer;
 
   @override
   InventoryImportState build() {
@@ -22,11 +26,28 @@ class InventoryImportNotifier extends Notifier<InventoryImportState> {
       importService: ref.read(inventoryImportServiceProvider),
       repository: ref.read(inventoryRepositoryProvider),
     );
+    _startActiveAuditRefresh();
     if (!_loadScheduled) {
       _loadScheduled = true;
       Future<void>.microtask(loadActiveAudit);
     }
     return const InventoryImportState.idle();
+  }
+
+  void _startActiveAuditRefresh() {
+    final repository = ref.read(inventoryRepositoryProvider);
+    _activeAuditSubscription ??= repository.watchActiveAudit().listen(
+          (_) => unawaited(loadActiveAudit()),
+          onError: (_, __) {},
+        );
+    _activeAuditPollingTimer ??= Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => unawaited(loadActiveAudit()),
+    );
+    ref.onDispose(() {
+      _activeAuditSubscription?.cancel();
+      _activeAuditPollingTimer?.cancel();
+    });
   }
 
   Future<void> loadActiveAudit() async {

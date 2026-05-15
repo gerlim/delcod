@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:barcode_app/features/inventory/data/inventory_repository.dart';
 import 'package:barcode_app/features/inventory/domain/inventory_audit.dart';
 import 'package:barcode_app/features/inventory/domain/inventory_audit_result.dart';
@@ -12,13 +14,49 @@ final inventoryAuditControllerProvider =
 
 class InventoryAuditNotifier extends AsyncNotifier<InventoryAuditFlowState> {
   late final InventoryAuditController _controller;
+  StreamSubscription<InventoryAudit?>? _activeAuditSubscription;
+  Timer? _activeAuditPollingTimer;
 
   @override
   Future<InventoryAuditFlowState> build() async {
     _controller = InventoryAuditController(
       repository: ref.read(inventoryRepositoryProvider),
     );
+    _startActiveAuditRefresh();
     return _controller.load();
+  }
+
+  void _startActiveAuditRefresh() {
+    final repository = ref.read(inventoryRepositoryProvider);
+    _activeAuditSubscription ??= repository.watchActiveAudit().listen(
+          (audit) => unawaited(
+            _refreshActiveAudit(observedAudit: audit, useObservedAudit: true),
+          ),
+          onError: (_, __) {},
+        );
+    _activeAuditPollingTimer ??= Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => unawaited(_refreshActiveAudit()),
+    );
+    ref.onDispose(() {
+      _activeAuditSubscription?.cancel();
+      _activeAuditPollingTimer?.cancel();
+    });
+  }
+
+  Future<void> _refreshActiveAudit({
+    InventoryAudit? observedAudit,
+    bool useObservedAudit = false,
+  }) async {
+    if (state.isLoading) {
+      return;
+    }
+    state = AsyncData(
+      await _controller.refreshActiveAudit(
+        observedAudit: observedAudit,
+        useObservedAudit: useObservedAudit,
+      ),
+    );
   }
 
   Future<void> lookupBarcode(String barcode) async {
@@ -87,6 +125,36 @@ class InventoryAuditController {
     if (audit != null) {
       await _repository.warmActiveAuditCache(audit.id);
     }
+    return _state;
+  }
+
+  Future<InventoryAuditFlowState> refreshActiveAudit({
+    InventoryAudit? observedAudit,
+    bool useObservedAudit = false,
+  }) async {
+    final audit = useObservedAudit
+        ? observedAudit
+        : await _repository.fetchActiveAudit();
+    if (audit == null) {
+      _state = const InventoryAuditFlowState.noActiveAudit();
+      return _state;
+    }
+
+    final auditedResults = await _repository.fetchResults(audit.id);
+    if (_state.activeAudit?.id != audit.id ||
+        _state.status == InventoryAuditFlowStatus.noActiveAudit ||
+        _state.status == InventoryAuditFlowStatus.ready) {
+      _state = InventoryAuditFlowState.ready(
+        activeAudit: audit,
+        auditedResults: auditedResults,
+      );
+    } else {
+      _state = _state.copyWith(
+        activeAudit: audit,
+        auditedResults: auditedResults,
+      );
+    }
+    await _repository.warmActiveAuditCache(audit.id);
     return _state;
   }
 

@@ -138,6 +138,28 @@ void main() {
     expect(await repository.pendingResultCount(), 0);
     expect(await dataSource.findResultByBarcode(audit.id, '789001'), isNotNull);
   });
+
+  test('watchActiveAudit emits null when active audit is archived', () async {
+    final dataSource = InMemoryInventoryRemoteDataSource();
+    final repository = InventoryRepository(dataSource: dataSource);
+    final events = <String?>[];
+    final subscription = repository.watchActiveAudit().listen((audit) {
+      events.add(audit?.id);
+    });
+
+    await Future<void>.delayed(Duration.zero);
+    final audit = await repository.createAuditFromImport(
+      title: 'Auditoria',
+      sourceFilename: 'inventario.xlsx',
+      drafts: [_draft(barcode: '789001')],
+    );
+    await Future<void>.delayed(Duration.zero);
+    await repository.archiveActiveAudit();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(events, containsAllInOrder(<String?>[null, audit.id, null]));
+    await subscription.cancel();
+  });
 }
 
 InventoryItemDraft _draft({required String barcode}) {

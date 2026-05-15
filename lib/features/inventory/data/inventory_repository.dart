@@ -121,6 +121,13 @@ class InventoryRepository {
     return _localCache?.readActiveAudit();
   }
 
+  Stream<InventoryAudit?> watchActiveAudit() {
+    return _dataSource.watchActiveAudit().asyncMap((audit) async {
+      await _localCache?.writeActiveAudit(audit);
+      return audit;
+    });
+  }
+
   Future<void> archiveActiveAudit() async {
     final activeAudit = await _dataSource.fetchActiveAudit();
     if (activeAudit == null) {
@@ -351,6 +358,7 @@ class InventoryRepository {
 
 abstract class InventoryRemoteDataSource {
   Future<InventoryAudit?> fetchActiveAudit();
+  Stream<InventoryAudit?> watchActiveAudit();
   Future<void> archiveAudit(String auditId);
   Future<void> insertAudit(InventoryAudit audit);
   Future<void> insertItems(List<InventoryItem> items);
@@ -370,6 +378,8 @@ class InMemoryInventoryRemoteDataSource implements InventoryRemoteDataSource {
   final Map<String, InventoryItem> _items = <String, InventoryItem>{};
   final Map<String, InventoryAuditResult> _results =
       <String, InventoryAuditResult>{};
+  final StreamController<InventoryAudit?> _activeAuditController =
+      StreamController<InventoryAudit?>.broadcast();
 
   InventoryAudit? auditById(String id) => _audits[id];
 
@@ -389,6 +399,7 @@ class InMemoryInventoryRemoteDataSource implements InventoryRemoteDataSource {
       createdAt: audit.createdAt,
       updatedAt: DateTime.now().toUtc(),
     );
+    _emitActiveAudit();
   }
 
   @override
@@ -399,6 +410,12 @@ class InMemoryInventoryRemoteDataSource implements InventoryRemoteDataSource {
       }
     }
     return null;
+  }
+
+  @override
+  Stream<InventoryAudit?> watchActiveAudit() async* {
+    yield await fetchActiveAudit();
+    yield* _activeAuditController.stream;
   }
 
   @override
@@ -443,6 +460,7 @@ class InMemoryInventoryRemoteDataSource implements InventoryRemoteDataSource {
   @override
   Future<void> insertAudit(InventoryAudit audit) async {
     _audits[audit.id] = audit;
+    _emitActiveAudit();
   }
 
   @override
@@ -460,6 +478,10 @@ class InMemoryInventoryRemoteDataSource implements InventoryRemoteDataSource {
   @override
   Future<void> insertResult(InventoryAuditResult result) async {
     _results[result.id] = result;
+  }
+
+  void _emitActiveAudit() {
+    unawaited(fetchActiveAudit().then(_activeAuditController.add));
   }
 }
 
@@ -491,6 +513,25 @@ class SupabaseInventoryRemoteDataSource implements InventoryRemoteDataSource {
       return null;
     }
     return InventoryAuditMapper.fromJson(Map<String, dynamic>.from(row));
+  }
+
+  @override
+  Stream<InventoryAudit?> watchActiveAudit() {
+    return _client
+        .from(InventoryAuditsRemoteContract.tableName)
+        .stream(primaryKey: [InventoryAuditsRemoteContract.id])
+        .order(InventoryAuditsRemoteContract.importedAt)
+        .map((rows) {
+          for (final row in rows.reversed) {
+            final audit = InventoryAuditMapper.fromJson(
+              Map<String, dynamic>.from(row),
+            );
+            if (audit.isActive) {
+              return audit;
+            }
+          }
+          return null;
+        });
   }
 
   @override
