@@ -29,7 +29,7 @@ void main() {
       ),
     );
 
-    expect(find.text('Importar XLSX'), findsOneWidget);
+    expect(find.text('Importar XLS/XLSX'), findsOneWidget);
     expect(find.text('Auditoria ativa'), findsOneWidget);
     expect(find.text('Exportar resultado'), findsOneWidget);
     expect(find.text('Historico de auditorias'), findsOneWidget);

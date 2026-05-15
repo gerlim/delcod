@@ -8,7 +8,8 @@ final readingImportPickerProvider = Provider<ReadingImportPicker>((ref) {
 });
 
 final inventoryImportPickerProvider = Provider<ReadingImportPicker>((ref) {
-  return const FilePickerReadingImportPicker(allowedExtensions: ['xlsx']);
+  return const FilePickerReadingImportPicker(
+      allowedExtensions: ['xlsx', 'xls']);
 });
 
 abstract class ReadingImportPicker {

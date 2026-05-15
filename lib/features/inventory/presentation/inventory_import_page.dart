@@ -56,14 +56,14 @@ class InventoryImportPage extends ConsumerWidget {
             SectionHeader(
               title: 'Auditoria de inventario',
               subtitle:
-                  'Importe o XLSX com as duas empresas, acompanhe a auditoria ativa e exporte o resultado separado por status.',
+                  'Importe o XLSX ou XLS com as duas empresas, acompanhe a auditoria ativa e exporte o resultado separado por status.',
               actions: [
                 FilledButton.icon(
                   onPressed: resolvedState.isLoading
                       ? null
                       : onImportPressed ?? () => _pickAndImport(ref),
                   icon: const Icon(Icons.upload_file_outlined),
-                  label: const Text('Importar XLSX'),
+                  label: const Text('Importar XLS/XLSX'),
                 ),
                 OutlinedButton.icon(
                   onPressed: resolvedState.activeAuditId == null

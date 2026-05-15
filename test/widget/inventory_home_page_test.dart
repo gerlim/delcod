@@ -24,7 +24,7 @@ void main() {
     );
 
     expect(find.text('Auditoria de inventario'), findsOneWidget);
-    expect(find.text('Importar XLSX'), findsOneWidget);
+    expect(find.text('Importar XLS/XLSX'), findsOneWidget);
   });
 
   testWidgets('shows scan workflow when camera scanning is supported', (

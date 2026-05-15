@@ -24,6 +24,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Auditoria de inventario'), findsOneWidget);
-    expect(find.text('Importar XLSX'), findsOneWidget);
+    expect(find.text('Importar XLS/XLSX'), findsOneWidget);
   });
 }

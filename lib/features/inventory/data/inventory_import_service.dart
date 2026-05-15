@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:barcode_app/features/inventory/domain/inventory_import_models.dart';
@@ -10,36 +11,33 @@ class InventoryImportService {
     required String filename,
     required Uint8List bytes,
   }) {
-    if (!filename.toLowerCase().endsWith('.xlsx')) {
+    final normalizedFilename = filename.toLowerCase();
+    if (!normalizedFilename.endsWith('.xlsx') &&
+        !normalizedFilename.endsWith('.xls')) {
       return InventoryImportValidation(
         filename: filename,
         items: const <InventoryItemDraft>[],
         errors: const [
-          InventoryImportError(message: 'Apenas arquivos .xlsx sao aceitos.'),
+          InventoryImportError(
+            message: 'Apenas arquivos .xlsx ou .xls sao aceitos.',
+          ),
         ],
       );
     }
 
-    final workbook = Excel.decodeBytes(bytes);
-    final sheet = _firstUsableSheet(workbook);
-    if (sheet == null) {
+    final rows = _readRows(bytes);
+    if (rows == null) {
       return InventoryImportValidation(
         filename: filename,
         items: const <InventoryItemDraft>[],
         errors: const [
-          InventoryImportError(message: 'Planilha sem linhas utilizaveis.'),
+          InventoryImportError(
+            message:
+                'Nao foi possivel ler a planilha. Se for um .xls antigo, abra no Excel e salve como .xlsx.',
+          ),
         ],
       );
     }
-
-    final rows = sheet.rows
-        .map(
-          (row) => row
-              .map((cell) => _cellValueToText(cell?.value).trim())
-              .toList(growable: false),
-        )
-        .where((row) => row.any((cell) => cell.isNotEmpty))
-        .toList(growable: false);
 
     if (rows.length < 2) {
       return InventoryImportValidation(
@@ -141,6 +139,134 @@ class InventoryImportService {
       items: items,
       errors: errors,
     );
+  }
+
+  List<List<String>>? _readRows(Uint8List bytes) {
+    final workbookRows = _readXlsxRows(bytes);
+    if (workbookRows != null) {
+      return workbookRows;
+    }
+    return _readTextSpreadsheetRows(bytes);
+  }
+
+  List<List<String>>? _readXlsxRows(Uint8List bytes) {
+    try {
+      final workbook = Excel.decodeBytes(bytes);
+      final sheet = _firstUsableSheet(workbook);
+      if (sheet == null) {
+        return null;
+      }
+      return sheet.rows
+          .map(
+            (row) => row
+                .map((cell) => _cellValueToText(cell?.value).trim())
+                .toList(growable: false),
+          )
+          .where((row) => row.any((cell) => cell.isNotEmpty))
+          .toList(growable: false);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  List<List<String>>? _readTextSpreadsheetRows(Uint8List bytes) {
+    for (final text in _decodeTextCandidates(bytes)) {
+      final htmlRows = _parseHtmlTableRows(text);
+      if (_hasUsableRows(htmlRows)) {
+        return htmlRows;
+      }
+
+      final separatedRows = _parseSeparatedRows(text);
+      if (_hasUsableRows(separatedRows)) {
+        return separatedRows;
+      }
+    }
+    return null;
+  }
+
+  Iterable<String> _decodeTextCandidates(Uint8List bytes) sync* {
+    yield utf8.decode(bytes, allowMalformed: true);
+    yield latin1.decode(bytes, allowInvalid: true);
+  }
+
+  List<List<String>> _parseHtmlTableRows(String text) {
+    final rows = <List<String>>[];
+    final rowPattern = RegExp(
+      r'<tr\b[^>]*>(.*?)</tr>',
+      caseSensitive: false,
+      dotAll: true,
+    );
+    final cellPattern = RegExp(
+      r'<t[dh]\b[^>]*>(.*?)</t[dh]>',
+      caseSensitive: false,
+      dotAll: true,
+    );
+
+    for (final rowMatch in rowPattern.allMatches(text)) {
+      final rowHtml = rowMatch.group(1) ?? '';
+      final row = cellPattern
+          .allMatches(rowHtml)
+          .map((match) => _htmlCellToText(match.group(1) ?? ''))
+          .toList(growable: false);
+      if (row.any((cell) => cell.isNotEmpty)) {
+        rows.add(row);
+      }
+    }
+    return rows;
+  }
+
+  List<List<String>> _parseSeparatedRows(String text) {
+    final lines = const LineSplitter()
+        .convert(text)
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty)
+        .toList(growable: false);
+    if (lines.isEmpty) {
+      return const <List<String>>[];
+    }
+
+    final delimiter = _detectDelimiter(lines.first);
+    return lines
+        .map(
+            (line) => line.split(delimiter).map((cell) => cell.trim()).toList())
+        .where((row) => row.any((cell) => cell.isNotEmpty))
+        .toList(growable: false);
+  }
+
+  Pattern _detectDelimiter(String headerLine) {
+    final tabs = '\t'.allMatches(headerLine).length;
+    final semicolons = ';'.allMatches(headerLine).length;
+    final commas = ','.allMatches(headerLine).length;
+    if (tabs >= semicolons && tabs >= commas && tabs > 0) {
+      return '\t';
+    }
+    if (semicolons >= commas && semicolons > 0) {
+      return ';';
+    }
+    return ',';
+  }
+
+  bool _hasUsableRows(List<List<String>> rows) {
+    return rows.length >= 2 && rows.first.length > 1;
+  }
+
+  String _htmlCellToText(String html) {
+    final withoutTags = html
+        .replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), ' ')
+        .replaceAll(RegExp(r'<[^>]+>'), ' ');
+    return _decodeHtmlEntities(withoutTags)
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
+
+  String _decodeHtmlEntities(String value) {
+    return value
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&amp;', '&')
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&#39;', "'");
   }
 
   Sheet? _firstUsableSheet(Excel workbook) {
@@ -255,6 +381,19 @@ class InventoryImportService {
 
     final buffer = StringBuffer();
     for (final rune in lowercase.runes) {
+      final ascii = switch (rune) {
+        0x00e1 || 0x00e0 || 0x00e2 || 0x00e3 || 0x00e4 => 'a',
+        0x00e9 || 0x00e8 || 0x00ea || 0x00eb => 'e',
+        0x00ed || 0x00ec || 0x00ee || 0x00ef => 'i',
+        0x00f3 || 0x00f2 || 0x00f4 || 0x00f5 || 0x00f6 => 'o',
+        0x00fa || 0x00f9 || 0x00fb || 0x00fc => 'u',
+        0x00e7 => 'c',
+        _ => null,
+      };
+      if (ascii != null) {
+        buffer.write(ascii);
+        continue;
+      }
       final char = String.fromCharCode(rune);
       buffer.write(accentMap[char] ?? char);
     }

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:barcode_app/features/inventory/data/inventory_import_service.dart';
@@ -128,6 +129,63 @@ void main() {
     expect(abnItem.weight, '199.5');
     expect(abnItem.warehouse, 'GLR');
     expect(abnItem.barcode, 'RN010825B1205900301');
+  });
+
+  test('accepts xlsx content when file extension is xls', () {
+    const service = InventoryImportService();
+    final result = service.parseXlsx(
+      filename: 'inventario.xls',
+      bytes: _buildWorkbook([
+        [
+          'Empresa',
+          'Codigo',
+          'Descricao',
+          'Codigo de Barras',
+          'Peso',
+          'Armazem'
+        ],
+        ['Bora Embalagens', 'BOB-001', 'Papel kraft', '789001', '482,5', '05'],
+      ]),
+    );
+
+    expect(result.isValid, isTrue);
+    expect(result.items.single.barcode, '789001');
+  });
+
+  test('imports html table exported with xls extension', () {
+    const service = InventoryImportService();
+    final result = service.parseXlsx(
+      filename: 'saldos_exportados.xls',
+      bytes: Uint8List.fromList(
+        latin1.encode('''
+<html>
+<body>
+<table>
+<tr>
+  <td>Produto</td>
+  <td>Descricao</td>
+  <td>Saldo Bobina</td>
+  <td>Armazem</td>
+  <td>Lote Bobina</td>
+</tr>
+<tr>
+  <td>2059002</td>
+  <td>CARTAO NILS 275G X 350MM P25CM</td>
+  <td>378.3</td>
+  <td>05</td>
+  <td>CORTE2701260117902</td>
+</tr>
+</table>
+</body>
+</html>
+'''),
+      ),
+    );
+
+    expect(result.isValid, isTrue);
+    expect(result.items.single.companyName, 'Bora Embalagens');
+    expect(result.items.single.bobbinCode, '2059002');
+    expect(result.items.single.barcode, 'CORTE2701260117902');
   });
 }
 
