@@ -1,7 +1,7 @@
 {
-  "versionName": "1.1.6",
-  "versionCode": 12,
-  "apkUrl": "https://gerlim.github.io/delcod/updates/DelCod-12.apk",
+  "versionName": "1.1.7",
+  "versionCode": 13,
+  "apkUrl": "https://gerlim.github.io/delcod/updates/DelCod-13.apk",
   "mandatory": false,
-  "releaseNotes": "Acelera sincronizacao e permite leitura offline"
+  "releaseNotes": "Atualiza inventario aberto quando apagado na web"
 }
