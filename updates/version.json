@@ -1,7 +1,7 @@
 {
-  "versionName": "1.1.4",
-  "versionCode": 10,
-  "apkUrl": "https://gerlim.github.io/delcod/updates/DelCod-10.apk",
+  "versionName": "1.1.5",
+  "versionCode": 11,
+  "apkUrl": "https://gerlim.github.io/delcod/updates/DelCod-11.apk",
   "mandatory": false,
-  "releaseNotes": "Mostra atualizacao automatica no inventario"
+  "releaseNotes": "Mantem auditoria apos leitura e mostra codigos lidos"
 }
