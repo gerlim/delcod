@@ -35,7 +35,7 @@ class InventoryAuditNotifier extends AsyncNotifier<InventoryAuditFlowState> {
           onError: (_, __) {},
         );
     _activeAuditPollingTimer ??= Timer.periodic(
-      const Duration(seconds: 5),
+      const Duration(minutes: 5),
       (_) => unawaited(_refreshActiveAudit()),
     );
     ref.onDispose(() {
@@ -132,9 +132,8 @@ class InventoryAuditController {
     InventoryAudit? observedAudit,
     bool useObservedAudit = false,
   }) async {
-    final audit = useObservedAudit
-        ? observedAudit
-        : await _repository.fetchActiveAudit();
+    final audit =
+        useObservedAudit ? observedAudit : await _repository.fetchActiveAudit();
     if (audit == null) {
       _state = const InventoryAuditFlowState.noActiveAudit();
       return _state;

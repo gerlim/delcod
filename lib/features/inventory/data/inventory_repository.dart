@@ -488,6 +488,8 @@ class InMemoryInventoryRemoteDataSource implements InventoryRemoteDataSource {
 class SupabaseInventoryRemoteDataSource implements InventoryRemoteDataSource {
   SupabaseInventoryRemoteDataSource(this._client);
 
+  static const _pageSize = 1000;
+
   final SupabaseClient _client;
 
   @override
@@ -536,11 +538,21 @@ class SupabaseInventoryRemoteDataSource implements InventoryRemoteDataSource {
 
   @override
   Future<List<InventoryItem>> fetchItems(String auditId) async {
-    final rows = await _client
-        .from(InventoryItemsRemoteContract.tableName)
-        .select()
-        .eq(InventoryItemsRemoteContract.auditId, auditId)
-        .order(InventoryItemsRemoteContract.rowNumber);
+    final rows = <dynamic>[];
+    var from = 0;
+    while (true) {
+      final page = await _client
+          .from(InventoryItemsRemoteContract.tableName)
+          .select()
+          .eq(InventoryItemsRemoteContract.auditId, auditId)
+          .order(InventoryItemsRemoteContract.rowNumber)
+          .range(from, from + _pageSize - 1);
+      rows.addAll(page);
+      if (page.length < _pageSize) {
+        break;
+      }
+      from += _pageSize;
+    }
     return rows
         .map<InventoryItem>(
           (row) => InventoryItemMapper.fromJson(Map<String, dynamic>.from(row)),
@@ -550,11 +562,21 @@ class SupabaseInventoryRemoteDataSource implements InventoryRemoteDataSource {
 
   @override
   Future<List<InventoryAuditResult>> fetchResults(String auditId) async {
-    final rows = await _client
-        .from(InventoryAuditResultsRemoteContract.tableName)
-        .select()
-        .eq(InventoryAuditResultsRemoteContract.auditId, auditId)
-        .order(InventoryAuditResultsRemoteContract.scannedAt);
+    final rows = <dynamic>[];
+    var from = 0;
+    while (true) {
+      final page = await _client
+          .from(InventoryAuditResultsRemoteContract.tableName)
+          .select()
+          .eq(InventoryAuditResultsRemoteContract.auditId, auditId)
+          .order(InventoryAuditResultsRemoteContract.scannedAt)
+          .range(from, from + _pageSize - 1);
+      rows.addAll(page);
+      if (page.length < _pageSize) {
+        break;
+      }
+      from += _pageSize;
+    }
     return rows
         .map<InventoryAuditResult>(
           (row) => InventoryAuditResultMapper.fromJson(

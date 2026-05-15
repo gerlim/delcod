@@ -41,7 +41,7 @@ class InventoryImportNotifier extends Notifier<InventoryImportState> {
           onError: (_, __) {},
         );
     _activeAuditPollingTimer ??= Timer.periodic(
-      const Duration(seconds: 5),
+      const Duration(minutes: 5),
       (_) => unawaited(loadActiveAudit()),
     );
     ref.onDispose(() {
