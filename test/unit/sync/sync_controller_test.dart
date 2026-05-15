@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:barcode_app/features/inventory/data/inventory_repository.dart';
 import 'package:barcode_app/features/readings/data/readings_repository.dart';
 import 'package:barcode_app/features/readings/domain/reading_classification.dart';
 import 'package:barcode_app/features/sync/application/sync_controller.dart';
@@ -17,6 +18,9 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         readingsRepositoryProvider.overrideWithValue(repository),
+        inventoryRepositoryProvider.overrideWithValue(
+          InventoryRepository(dataSource: InMemoryInventoryRemoteDataSource()),
+        ),
         syncPollingEnabledProvider.overrideWithValue(false),
       ],
     );
@@ -45,6 +49,9 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         readingsRepositoryProvider.overrideWithValue(repository),
+        inventoryRepositoryProvider.overrideWithValue(
+          InventoryRepository(dataSource: InMemoryInventoryRemoteDataSource()),
+        ),
         syncPollingEnabledProvider.overrideWithValue(false),
       ],
     );

@@ -84,6 +84,9 @@ class InventoryAuditController {
             activeAudit: audit,
             auditedResults: await _repository.fetchResults(audit.id),
           );
+    if (audit != null) {
+      await _repository.warmActiveAuditCache(audit.id);
+    }
     return _state;
   }
 
@@ -215,8 +218,7 @@ class InventoryAuditFlowState {
   const InventoryAuditFlowState.ready({
     this.activeAudit,
     this.auditedResults = const [],
-  })
-      : status = InventoryAuditFlowStatus.ready,
+  })  : status = InventoryAuditFlowStatus.ready,
         scannedBarcode = null,
         item = null,
         existingResult = null,

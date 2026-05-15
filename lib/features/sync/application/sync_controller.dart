@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:barcode_app/features/inventory/data/inventory_repository.dart';
 import 'package:barcode_app/features/readings/data/readings_repository.dart';
 import 'package:barcode_app/features/sync/domain/sync_log_entry.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -116,7 +117,7 @@ class SyncController extends Notifier<SyncState> {
       state = _appendEvent(
         state.copyWith(
           status: SyncStatus.offline,
-          pendingCount: await repository.pendingCount(),
+          pendingCount: await _pendingCount(repository),
           lastAttemptAt: attemptAt,
           clearError: true,
         ),
@@ -126,7 +127,7 @@ class SyncController extends Notifier<SyncState> {
       return;
     }
 
-    final pendingBefore = await repository.pendingCount();
+    final pendingBefore = await _pendingCount(repository);
     state = state.copyWith(
       status: pendingBefore == 0 ? SyncStatus.synced : SyncStatus.syncing,
       pendingCount: pendingBefore,
@@ -136,7 +137,8 @@ class SyncController extends Notifier<SyncState> {
 
     try {
       await repository.syncNow();
-      final pendingAfter = await repository.pendingCount();
+      await ref.read(inventoryRepositoryProvider).syncPendingResults();
+      final pendingAfter = await _pendingCount(repository);
       final nextStatus =
           pendingAfter == 0 ? SyncStatus.synced : SyncStatus.syncing;
       state = _appendEvent(
@@ -156,7 +158,7 @@ class SyncController extends Notifier<SyncState> {
       state = _appendEvent(
         state.copyWith(
           status: SyncStatus.failed,
-          pendingCount: await repository.pendingCount(),
+          pendingCount: await _pendingCount(repository),
           lastError: message,
         ),
         status: SyncStatus.failed,
@@ -183,5 +185,10 @@ class SyncController extends Notifier<SyncState> {
     return nextState.copyWith(
       recentEvents: recentEvents.take(12).toList(growable: false),
     );
+  }
+
+  Future<int> _pendingCount(ReadingsRepository repository) async {
+    return await repository.pendingCount() +
+        await ref.read(inventoryRepositoryProvider).pendingResultCount();
   }
 }

@@ -1,4 +1,5 @@
 import 'package:barcode_app/core/platform/platform_capabilities.dart';
+import 'package:barcode_app/features/inventory/application/inventory_audit_controller.dart';
 import 'package:barcode_app/features/inventory/presentation/inventory_home_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -38,13 +39,27 @@ void main() {
               supportsManualEntry: true,
             ),
           ),
+          inventoryAuditControllerProvider.overrideWith(
+            () => _StaticInventoryAuditNotifier(
+              const InventoryAuditFlowState.ready(),
+            ),
+          ),
         ],
         child: const MaterialApp(home: InventoryHomePage()),
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 100));
 
     expect(find.text('Auditar bobina'), findsOneWidget);
     expect(find.text('Codigo de barras manual'), findsOneWidget);
   });
+}
+
+class _StaticInventoryAuditNotifier extends InventoryAuditNotifier {
+  _StaticInventoryAuditNotifier(this._state);
+
+  final InventoryAuditFlowState _state;
+
+  @override
+  Future<InventoryAuditFlowState> build() async => _state;
 }

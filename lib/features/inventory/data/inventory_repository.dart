@@ -1,13 +1,19 @@
+import 'dart:async';
+
 import 'package:barcode_app/data/remote/supabase/supabase_client_provider.dart';
 import 'package:barcode_app/features/inventory/data/inventory_audit_mapper.dart';
 import 'package:barcode_app/features/inventory/data/inventory_audit_result_mapper.dart';
 import 'package:barcode_app/features/inventory/data/inventory_item_mapper.dart';
+import 'package:barcode_app/features/inventory/data/inventory_local_cache.dart';
 import 'package:barcode_app/features/inventory/data/inventory_remote_contract.dart';
 import 'package:barcode_app/features/inventory/domain/inventory_audit.dart';
 import 'package:barcode_app/features/inventory/domain/inventory_audit_result.dart';
 import 'package:barcode_app/features/inventory/domain/inventory_import_models.dart';
 import 'package:barcode_app/features/inventory/domain/inventory_item.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase/supabase.dart';
 import 'package:uuid/uuid.dart';
 
@@ -17,21 +23,40 @@ final inventoryRepositoryProvider = Provider<InventoryRepository>((ref) {
     dataSource: supabase == null
         ? InMemoryInventoryRemoteDataSource()
         : SupabaseInventoryRemoteDataSource(supabase),
+    localCache: SharedPreferencesInventoryLocalCache(
+      SharedPreferences.getInstance,
+    ),
+    isOnline: _defaultOnlineCheck,
   );
 });
+
+Future<bool> _defaultOnlineCheck() async {
+  try {
+    final results = await Connectivity().checkConnectivity();
+    return results.any((result) => result != ConnectivityResult.none);
+  } on MissingPluginException {
+    return true;
+  }
+}
 
 class InventoryRepository {
   InventoryRepository({
     required InventoryRemoteDataSource dataSource,
     Uuid uuid = const Uuid(),
     DateTime Function()? now,
+    InventoryLocalCache? localCache,
+    Future<bool> Function()? isOnline,
   })  : _dataSource = dataSource,
         _uuid = uuid,
-        _now = now ?? (() => DateTime.now().toUtc());
+        _now = now ?? (() => DateTime.now().toUtc()),
+        _localCache = localCache,
+        _isOnline = isOnline ?? (() async => true);
 
   final InventoryRemoteDataSource _dataSource;
   final Uuid _uuid;
   final DateTime Function() _now;
+  final InventoryLocalCache? _localCache;
+  final Future<bool> Function() _isOnline;
 
   Future<InventoryAudit> createAuditFromImport({
     required String title,
@@ -73,11 +98,27 @@ class InventoryRepository {
         )
         .toList(growable: false);
     await _dataSource.insertItems(items);
+    await _cacheActiveSnapshot(
+      audit: audit,
+      items: items,
+      results: const <InventoryAuditResult>[],
+      clearPending: true,
+    );
     return audit;
   }
 
-  Future<InventoryAudit?> fetchActiveAudit() {
-    return _dataSource.fetchActiveAudit();
+  Future<InventoryAudit?> fetchActiveAudit() async {
+    if (await _isOnline()) {
+      try {
+        await syncPendingResults();
+        final audit = await _dataSource.fetchActiveAudit();
+        await _localCache?.writeActiveAudit(audit);
+        return audit;
+      } catch (_) {
+        return _localCache?.readActiveAudit();
+      }
+    }
+    return _localCache?.readActiveAudit();
   }
 
   Future<void> archiveActiveAudit() async {
@@ -86,32 +127,85 @@ class InventoryRepository {
       return;
     }
     await _dataSource.archiveAudit(activeAudit.id);
+    await _localCache?.writeActiveAudit(null);
   }
 
-  Future<List<InventoryItem>> fetchItems(String auditId) {
-    return _dataSource.fetchItems(auditId);
+  Future<List<InventoryItem>> fetchItems(String auditId) async {
+    if (await _isOnline()) {
+      try {
+        final items = await _dataSource.fetchItems(auditId);
+        await _localCache?.writeItems(auditId, items);
+        return items;
+      } catch (_) {
+        return _localCache?.readItems(auditId) ?? const <InventoryItem>[];
+      }
+    }
+    return _localCache?.readItems(auditId) ?? const <InventoryItem>[];
   }
 
-  Future<void> updateItem(InventoryItem item) {
-    return _dataSource.updateItem(item);
+  Future<void> updateItem(InventoryItem item) async {
+    await _dataSource.updateItem(item);
+    final items = await fetchItems(item.auditId);
+    final updatedItems = items
+        .map((current) => current.id == item.id ? item : current)
+        .toList(growable: false);
+    await _localCache?.writeItems(item.auditId, updatedItems);
   }
 
   Future<InventoryItem?> findItemByBarcode(
     String auditId,
     String barcode,
-  ) {
-    return _dataSource.findItemByBarcode(auditId, barcode.trim());
+  ) async {
+    final trimmed = barcode.trim();
+    final cachedItems = await _localCache?.readItems(auditId);
+    final cached = cachedItems?.where((item) => item.lookupBarcode == trimmed);
+    if (cached != null && cached.isNotEmpty) {
+      return cached.first;
+    }
+    if (!await _isOnline()) {
+      return null;
+    }
+    final remote = await _dataSource.findItemByBarcode(auditId, trimmed);
+    if (remote != null) {
+      final existing = await _localCache?.readItems(auditId) ?? [];
+      await _localCache?.writeItems(auditId, _upsertItem(existing, remote));
+    }
+    return remote;
   }
 
   Future<InventoryAuditResult?> findResultByBarcode(
     String auditId,
     String barcode,
-  ) {
-    return _dataSource.findResultByBarcode(auditId, barcode.trim());
+  ) async {
+    final trimmed = barcode.trim();
+    final cached = (await _localCache?.readResults(auditId) ?? [])
+        .where((result) => result.scannedBarcode == trimmed);
+    if (cached.isNotEmpty) {
+      return cached.first;
+    }
+    if (!await _isOnline()) {
+      return null;
+    }
+    final remote = await _dataSource.findResultByBarcode(auditId, trimmed);
+    if (remote != null) {
+      await _cacheResult(remote);
+    }
+    return remote;
   }
 
-  Future<List<InventoryAuditResult>> fetchResults(String auditId) {
-    return _dataSource.fetchResults(auditId);
+  Future<List<InventoryAuditResult>> fetchResults(String auditId) async {
+    if (await _isOnline()) {
+      try {
+        await syncPendingResults();
+        final results = await _dataSource.fetchResults(auditId);
+        await _localCache?.writeResults(auditId, results);
+        return _localCache?.readResults(auditId) ?? results;
+      } catch (_) {
+        return _localCache?.readResults(auditId) ??
+            const <InventoryAuditResult>[];
+      }
+    }
+    return _localCache?.readResults(auditId) ?? const <InventoryAuditResult>[];
   }
 
   Future<InventoryAuditResult> saveResult(InventoryAuditResult result) async {
@@ -125,16 +219,133 @@ class InventoryRepository {
         scannedBarcode: result.scannedBarcode,
       );
     }
-    await _dataSource.insertResult(result);
+    if (await _isOnline()) {
+      try {
+        await _dataSource.insertResult(result);
+        await _cacheResult(result);
+        return result;
+      } catch (_) {
+        await _queuePendingResult(result);
+        await _cacheResult(result);
+        return result;
+      }
+    }
+    await _queuePendingResult(result);
+    await _cacheResult(result);
     return result;
   }
 
   Future<InventoryAuditSnapshot> fetchSnapshot(String auditId) async {
     return InventoryAuditSnapshot(
       auditId: auditId,
-      items: await _dataSource.fetchItems(auditId),
-      results: await _dataSource.fetchResults(auditId),
+      items: await fetchItems(auditId),
+      results: await fetchResults(auditId),
     );
+  }
+
+  Future<void> warmActiveAuditCache(String auditId) async {
+    if (!await _isOnline()) {
+      return;
+    }
+    try {
+      final audit = await _dataSource.fetchActiveAudit();
+      if (audit == null || audit.id != auditId) {
+        return;
+      }
+      await _cacheActiveSnapshot(
+        audit: audit,
+        items: await _dataSource.fetchItems(auditId),
+        results: await _dataSource.fetchResults(auditId),
+      );
+    } catch (_) {}
+  }
+
+  Future<int> pendingResultCount() async {
+    return (await _localCache?.readPendingResults() ?? []).length;
+  }
+
+  Future<void> syncPendingResults() async {
+    final cache = _localCache;
+    if (cache == null || !await _isOnline()) {
+      return;
+    }
+    final pending = await cache.readPendingResults();
+    if (pending.isEmpty) {
+      return;
+    }
+    final remaining = <InventoryAuditResult>[];
+    for (final result in pending) {
+      try {
+        final existing = await _dataSource.findResultByBarcode(
+          result.auditId,
+          result.scannedBarcode,
+        );
+        if (existing == null) {
+          await _dataSource.insertResult(result);
+          await _cacheResult(result);
+        } else {
+          await _cacheResult(existing);
+        }
+      } catch (_) {
+        remaining.add(result);
+      }
+    }
+    await cache.writePendingResults(remaining);
+  }
+
+  Future<void> _cacheActiveSnapshot({
+    required InventoryAudit audit,
+    required List<InventoryItem> items,
+    required List<InventoryAuditResult> results,
+    bool clearPending = false,
+  }) async {
+    await _localCache?.writeActiveAudit(audit);
+    await _localCache?.writeItems(audit.id, items);
+    await _localCache?.writeResults(audit.id, results);
+    if (clearPending) {
+      await _localCache?.writePendingResults(const <InventoryAuditResult>[]);
+    }
+  }
+
+  Future<void> _cacheResult(InventoryAuditResult result) async {
+    final cache = _localCache;
+    if (cache == null) {
+      return;
+    }
+    final current = await cache.readResults(result.auditId);
+    await cache.writeResults(result.auditId, _upsertResult(current, result));
+  }
+
+  Future<void> _queuePendingResult(InventoryAuditResult result) async {
+    final cache = _localCache;
+    if (cache == null) {
+      return;
+    }
+    final current = await cache.readPendingResults();
+    await cache.writePendingResults(_upsertResult(current, result));
+  }
+
+  List<InventoryItem> _upsertItem(
+    List<InventoryItem> items,
+    InventoryItem item,
+  ) {
+    final byId = <String, InventoryItem>{
+      for (final current in items) current.id: current
+    };
+    byId[item.id] = item;
+    return byId.values.toList(growable: false);
+  }
+
+  List<InventoryAuditResult> _upsertResult(
+    List<InventoryAuditResult> results,
+    InventoryAuditResult result,
+  ) {
+    final byBarcode = <String, InventoryAuditResult>{
+      for (final current in results)
+        '${current.auditId}:${current.scannedBarcode}': current,
+    };
+    byBarcode['${result.auditId}:${result.scannedBarcode}'] = result;
+    return byBarcode.values.toList(growable: false);
   }
 }
 
