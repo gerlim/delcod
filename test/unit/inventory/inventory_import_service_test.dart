@@ -219,7 +219,7 @@ void main() {
     );
 
     expect(result.isValid, isTrue);
-    expect(result.items.single.companyName, 'GTR DEL');
+    expect(result.items.single.companyName, 'GTR Del');
     expect(result.items.single.bobbinCode, '2007069');
     expect(
         result.items.single.itemDescription, 'MIOLO 130/140G X 870MM - PESADO');
@@ -228,7 +228,7 @@ void main() {
     expect(result.items.single.barcode, 'R0001760010001200706901');
   });
 
-  test('maps GTR ABN warehouse to ABN Embalagens', () {
+  test('maps GTR warehouses to explicit company names', () {
     const service = InventoryImportService();
     final result = service.parseXlsx(
       filename: 'GInventario.xlsx',
@@ -241,12 +241,21 @@ void main() {
           'GTR ABN',
           '28042600201205932411',
         ],
+        [
+          '2059325',
+          'CARTAO TESTE BORA',
+          '80.0',
+          'GTR BORA',
+          '28042600301205932537',
+        ],
       ]),
     );
 
     expect(result.isValid, isTrue);
-    expect(result.items.single.companyName, 'ABN Embalagens');
-    expect(result.items.single.warehouse, 'GTR ABN');
+    expect(result.items.first.companyName, 'GTR Abn');
+    expect(result.items.first.warehouse, 'GTR ABN');
+    expect(result.items.last.companyName, 'GTR Bora');
+    expect(result.items.last.warehouse, 'GTR BORA');
   });
 }
 

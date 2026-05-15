@@ -319,8 +319,11 @@ class InventoryImportService {
 
   String? _deriveCompanyNameFromWarehouse(String warehouse) {
     return switch (warehouse.trim().toUpperCase()) {
+      'GTR DEL' => 'GTR Del',
+      'GTR BORA' => 'GTR Bora',
+      'GTR ABN' => 'GTR Abn',
       '05' || 'PPI' => 'Bora Embalagens',
-      '04' || 'GLR' || 'GTR ABN' => 'ABN Embalagens',
+      '04' || 'GLR' => 'ABN Embalagens',
       _ => null,
     };
   }
