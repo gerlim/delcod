@@ -3,6 +3,7 @@ import 'package:barcode_app/features/app_update/application/app_update_controlle
 import 'package:barcode_app/features/app_update/domain/app_update_manifest.dart';
 import 'package:barcode_app/features/inventory/application/inventory_import_controller.dart';
 import 'package:barcode_app/features/inventory/domain/inventory_import_models.dart';
+import 'package:barcode_app/features/inventory/domain/inventory_item.dart';
 import 'package:barcode_app/features/inventory/presentation/inventory_import_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -102,6 +103,86 @@ void main() {
 
     expect(find.text('Nova versao disponivel'), findsOneWidget);
     expect(find.text('Atualizar agora'), findsOneWidget);
+  });
+
+  testWidgets('shows web maintenance action when enabled', (tester) async {
+    var archived = false;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          home: InventoryImportPage(
+            showWebMaintenanceActions: true,
+            onArchiveActiveAuditPressed: () => archived = true,
+            state: const InventoryImportState(
+              filename: 'saldo.xlsx',
+              isLoading: false,
+              importedCount: 12,
+              activeAuditId: 'audit-1',
+              errors: [],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Arquivo: saldo.xlsx'), findsOneWidget);
+    expect(find.text('Apagar auditoria'), findsOneWidget);
+
+    await tester.tap(find.text('Apagar auditoria'));
+    await tester.pumpAndSettle();
+
+    expect(archived, isTrue);
+  });
+
+  testWidgets('opens web item editor when enabled', (tester) async {
+    InventoryItem? savedItem;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp(
+          home: InventoryImportPage(
+            showWebMaintenanceActions: true,
+            onSaveImportedItem: (item) async => savedItem = item,
+            state: const InventoryImportState(
+              filename: 'saldo.xlsx',
+              isLoading: false,
+              importedCount: 1,
+              activeAuditId: 'audit-1',
+              importedItems: [
+                InventoryItem(
+                  id: 'item-1',
+                  auditId: 'audit-1',
+                  companyName: 'Bora Embalagens',
+                  bobbinCode: 'BOB-001',
+                  itemDescription: 'Papel kraft',
+                  barcode: '789001',
+                  weight: '482,5',
+                  warehouse: '05',
+                  rowNumber: 2,
+                ),
+              ],
+              errors: [],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.drag(find.byType(ListView), const Offset(0, -500));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Itens importados'), findsOneWidget);
+    await tester.tap(find.text('Editar'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Peso'),
+      '500,0',
+    );
+    await tester.tap(find.text('Salvar'));
+    await tester.pumpAndSettle();
+
+    expect(savedItem?.weight, '500,0');
   });
 }
 

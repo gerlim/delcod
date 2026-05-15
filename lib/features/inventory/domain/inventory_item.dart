@@ -24,4 +24,27 @@ class InventoryItem {
   final Map<String, dynamic> rawPayload;
 
   String get lookupBarcode => barcode.trim();
+
+  InventoryItem copyWith({
+    String? companyName,
+    String? bobbinCode,
+    String? itemDescription,
+    String? barcode,
+    String? weight,
+    String? warehouse,
+    Map<String, dynamic>? rawPayload,
+  }) {
+    return InventoryItem(
+      id: id,
+      auditId: auditId,
+      companyName: companyName ?? this.companyName,
+      bobbinCode: bobbinCode ?? this.bobbinCode,
+      itemDescription: itemDescription ?? this.itemDescription,
+      barcode: barcode ?? this.barcode,
+      weight: weight ?? this.weight,
+      warehouse: warehouse ?? this.warehouse,
+      rowNumber: rowNumber,
+      rawPayload: rawPayload ?? this.rawPayload,
+    );
+  }
 }

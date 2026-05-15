@@ -80,8 +80,20 @@ class InventoryRepository {
     return _dataSource.fetchActiveAudit();
   }
 
+  Future<void> archiveActiveAudit() async {
+    final activeAudit = await _dataSource.fetchActiveAudit();
+    if (activeAudit == null) {
+      return;
+    }
+    await _dataSource.archiveAudit(activeAudit.id);
+  }
+
   Future<List<InventoryItem>> fetchItems(String auditId) {
     return _dataSource.fetchItems(auditId);
+  }
+
+  Future<void> updateItem(InventoryItem item) {
+    return _dataSource.updateItem(item);
   }
 
   Future<InventoryItem?> findItemByBarcode(
@@ -131,6 +143,7 @@ abstract class InventoryRemoteDataSource {
   Future<void> archiveAudit(String auditId);
   Future<void> insertAudit(InventoryAudit audit);
   Future<void> insertItems(List<InventoryItem> items);
+  Future<void> updateItem(InventoryItem item);
   Future<List<InventoryItem>> fetchItems(String auditId);
   Future<InventoryItem?> findItemByBarcode(String auditId, String barcode);
   Future<InventoryAuditResult?> findResultByBarcode(
@@ -192,7 +205,8 @@ class InMemoryInventoryRemoteDataSource implements InventoryRemoteDataSource {
   }
 
   @override
-  Future<InventoryItem?> findItemByBarcode(String auditId, String barcode) async {
+  Future<InventoryItem?> findItemByBarcode(
+      String auditId, String barcode) async {
     for (final item in _items.values) {
       if (item.auditId == auditId && item.lookupBarcode == barcode.trim()) {
         return item;
@@ -228,6 +242,11 @@ class InMemoryInventoryRemoteDataSource implements InventoryRemoteDataSource {
   }
 
   @override
+  Future<void> updateItem(InventoryItem item) async {
+    _items[item.id] = item;
+  }
+
+  @override
   Future<void> insertResult(InventoryAuditResult result) async {
     _results[result.id] = result;
   }
@@ -240,13 +259,10 @@ class SupabaseInventoryRemoteDataSource implements InventoryRemoteDataSource {
 
   @override
   Future<void> archiveAudit(String auditId) async {
-    await _client
-        .from(InventoryAuditsRemoteContract.tableName)
-        .update({
-          InventoryAuditsRemoteContract.status:
-              InventoryAuditStatus.archived.remoteValue,
-        })
-        .eq(InventoryAuditsRemoteContract.id, auditId);
+    await _client.from(InventoryAuditsRemoteContract.tableName).update({
+      InventoryAuditsRemoteContract.status:
+          InventoryAuditStatus.archived.remoteValue,
+    }).eq(InventoryAuditsRemoteContract.id, auditId);
   }
 
   @override
@@ -297,7 +313,8 @@ class SupabaseInventoryRemoteDataSource implements InventoryRemoteDataSource {
   }
 
   @override
-  Future<InventoryItem?> findItemByBarcode(String auditId, String barcode) async {
+  Future<InventoryItem?> findItemByBarcode(
+      String auditId, String barcode) async {
     final row = await _client
         .from(InventoryItemsRemoteContract.tableName)
         .select()
@@ -342,6 +359,14 @@ class SupabaseInventoryRemoteDataSource implements InventoryRemoteDataSource {
     await _client.from(InventoryItemsRemoteContract.tableName).insert(
           items.map(InventoryItemMapper.toJson).toList(growable: false),
         );
+  }
+
+  @override
+  Future<void> updateItem(InventoryItem item) async {
+    await _client
+        .from(InventoryItemsRemoteContract.tableName)
+        .update(InventoryItemMapper.toJson(item))
+        .eq(InventoryItemsRemoteContract.id, item.id);
   }
 
   @override
