@@ -122,7 +122,7 @@ void main() {
     expect(state.importedItems.first.weight, '500,0');
   });
 
-  test('does not create audit when xlsx has duplicate barcodes', () async {
+  test('creates audit ignoring duplicated barcodes', () async {
     final repository = InventoryRepository(
       dataSource: InMemoryInventoryRemoteDataSource(),
     );
@@ -147,9 +147,9 @@ void main() {
       ]),
     );
 
-    expect(state.importedCount, 0);
-    expect(state.errors, isNotEmpty);
-    expect(await repository.fetchActiveAudit(), isNull);
+    expect(state.importedCount, 1);
+    expect(state.errors, isEmpty);
+    expect(await repository.fetchActiveAudit(), isNotNull);
   });
 }
 

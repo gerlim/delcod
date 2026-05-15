@@ -99,7 +99,7 @@ class InventoryImportService {
       if (companyName.isEmpty) {
         errors.add(
           InventoryImportError(
-            message: 'Empresa obrigatoria ou armazem sem mapeamento conhecido.',
+            message: 'Empresa obrigatoria quando armazem nao foi informado.',
             rowNumber: rowNumber,
           ),
         );
@@ -108,13 +108,6 @@ class InventoryImportService {
 
       final duplicateFirstRow = seenBarcodes[barcode];
       if (duplicateFirstRow != null) {
-        errors.add(
-          InventoryImportError(
-            message:
-                'Codigo de barras duplicado: $barcode nas linhas $duplicateFirstRow e $rowNumber.',
-            rowNumber: rowNumber,
-          ),
-        );
         continue;
       }
       seenBarcodes[barcode] = rowNumber;
@@ -312,7 +305,7 @@ class InventoryImportService {
         return companyName;
       }
     }
-    return _deriveCompanyNameFromWarehouse(warehouse) ?? '';
+    return _deriveCompanyNameFromWarehouse(warehouse) ?? warehouse.trim();
   }
 
   String? _deriveCompanyNameFromWarehouse(String warehouse) {
@@ -408,7 +401,7 @@ enum InventoryImportColumn {
   ),
   bobbinCode(
     label: 'codigo',
-    aliases: {'codigo', 'codigo da bobina', 'bobbin code', 'produto'},
+    aliases: {'codigo', 'codigo da bobina', 'bobbin code', 'produto', 'item'},
   ),
   description(
     label: 'descricao',
@@ -425,6 +418,7 @@ enum InventoryImportColumn {
       'codigo de barras',
       'barcode',
       'ean',
+      'lote',
       'lote bobina',
       'lote de bobina',
     },
@@ -436,6 +430,9 @@ enum InventoryImportColumn {
       'weight',
       'saldo bobina',
       'saldo da bobina',
+      'qtd_atual',
+      'qtd atual',
+      'quantidade atual',
     },
   ),
   warehouse(

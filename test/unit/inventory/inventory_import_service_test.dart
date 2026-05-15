@@ -46,7 +46,7 @@ void main() {
     expect(result.items.first.weight, '482,5');
   });
 
-  test('rejects duplicate barcodes in the same import', () {
+  test('skips duplicate barcodes in the same import', () {
     const service = InventoryImportService();
     final result = service.parseXlsx(
       filename: 'inventario.xlsx',
@@ -64,8 +64,9 @@ void main() {
       ]),
     );
 
-    expect(result.isValid, isFalse);
-    expect(result.errors.single.message, contains('789001'));
+    expect(result.isValid, isTrue);
+    expect(result.items, hasLength(1));
+    expect(result.items.single.companyName, 'Bora Embalagens');
   });
 
   test('imports real Protheus saldo layout deriving company by warehouse', () {
@@ -186,6 +187,44 @@ void main() {
     expect(result.items.single.companyName, 'Bora Embalagens');
     expect(result.items.single.bobbinCode, '2059002');
     expect(result.items.single.barcode, 'CORTE2701260117902');
+  });
+
+  test('imports GInventario layout using item, qtd_atual and lote headers', () {
+    const service = InventoryImportService();
+    final result = service.parseXlsx(
+      filename: 'GInventario.xlsx',
+      bytes: _buildWorkbook([
+        [
+          'ITEM',
+          'DESCRICAO',
+          'UM',
+          'qtd_original',
+          'qtd_atual',
+          'Saldo Proc.',
+          'Armazem',
+          'LOTE',
+        ],
+        [
+          '2007069',
+          'MIOLO 130/140G X 870MM - PESADO',
+          'kg',
+          '803.0',
+          '352.0',
+          '',
+          'GTR DEL',
+          'R0001760010001200706901',
+        ],
+      ]),
+    );
+
+    expect(result.isValid, isTrue);
+    expect(result.items.single.companyName, 'GTR DEL');
+    expect(result.items.single.bobbinCode, '2007069');
+    expect(
+        result.items.single.itemDescription, 'MIOLO 130/140G X 870MM - PESADO');
+    expect(result.items.single.weight, '352.0');
+    expect(result.items.single.warehouse, 'GTR DEL');
+    expect(result.items.single.barcode, 'R0001760010001200706901');
   });
 }
 
