@@ -10,6 +10,8 @@ def keystorePropertiesFile = rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
+def useLegacyDebugSigning = project.hasProperty("legacyDebugSigning") &&
+    project.property("legacyDebugSigning").toString().toBoolean()
 
 android {
     namespace = "com.gerlim.delcod"
@@ -46,7 +48,9 @@ android {
 
     buildTypes {
         release {
-            signingConfig = keystorePropertiesFile.exists()
+            signingConfig = useLegacyDebugSigning
+                ? signingConfigs.debug
+                : keystorePropertiesFile.exists()
                 ? signingConfigs.release
                 : signingConfigs.debug
             minifyEnabled = false
